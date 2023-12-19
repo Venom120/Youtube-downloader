@@ -2,10 +2,8 @@ import tkinter
 import customtkinter as cust
 from pytube import YouTube
 from PIL import Image, ImageTk
-import requests
 from io import BytesIO
-import os, time, pytube
-from threading import *
+import os, time, pytube, numpy as np, requests
 
 # Functions
 def url_to_image(url):
@@ -89,11 +87,11 @@ def complete(downloaded_stream, path_stream):
 cust.set_appearance_mode("System")
 cust.set_default_color_theme("blue")
 
-# ou app frame
+# app frame
 app = cust.CTk()
 app.title("Youtube Downloader")
-app.iconbitmap(bitmap="assets/Youtube_icon.ico")
 app.geometry("720x480")
+
 # Adding title
 title = cust.CTkLabel(app, text="Link to the video")
 title.pack()
@@ -140,4 +138,5 @@ progressbar.pack()
 
 
 app.resizable(False, False)
-app.mainloop()
+if __name__ == "__main__":
+    app.mainloop()
