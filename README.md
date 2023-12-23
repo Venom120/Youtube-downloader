@@ -3,10 +3,8 @@
 Youtube Video and Audio downloader for Android and Pc
 
 ## Requirements
--For windows
-    `pip install -r requirements.txt` 
--For Android
-    no need
+-For windows only
+    `pip install -r requirements.txt`
 
 ## Windows
 
