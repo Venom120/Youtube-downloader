@@ -1,0 +1,141 @@
+#:import hex kivy.utils.get_color_from_hex
+#:import threading threading
+#:import Clipboard kivy.core.clipboard.Clipboard
+<TextInput>
+    size_hint: (0.9, None)
+    height: dp(50)
+
+<Label>
+    size_hint: None, None
+    height: dp(20)
+    width: dp(150)
+
+<Button>
+    size_hint: (None, None)
+    width: dp(100)
+    height: dp(40)
+
+<YtDownloader>
+    BoxLayout:
+        orientation: "vertical"
+        size: root.width, root.height
+        padding: '10dp'
+        spacing: '10dp'
+
+        Label:
+            text: "Link to the video"
+            pos_hint: {"center_x": 0.5}
+            color: (1, 1, 1, 1)
+
+        TextInput:
+            id: link
+            multiline: False
+            pos_hint: {"center_x": 0.5}
+
+        Label:
+            id: error_display
+            pos_hint: {"center_x": 0.5}
+
+        RoundedButton:
+            text: "Download"
+            pos_hint: {"center_x": 0.5}
+            on_press:
+                root.ids.link.text=Clipboard.paste() if root.ids.link.text=="" else root.ids.link.text
+            on_release: root.show_details()
+
+        BoxLayout:
+            id: Youtube_details
+            size_hint_y:None
+            height:"255dp" if root.width>dp(530) else '380dp'
+            padding:'10dp'
+            orientation:'vertical'
+            opacity: 0
+            BoxLayout:
+                orientation:"horizontal" if root.width>dp(530) else 'vertical'
+                spacing: '10dp' if root.width>dp(530) else '15dp'
+                AsyncImage:
+                    id: thumbnail_image
+                    source:root.thumbnail_image_link
+                    size_hint_x:.5 if root.width>dp(530) else 1
+                BoxLayout:
+                    orientation:'vertical'
+                    spacing:'5dp'
+                    Label:
+                        id: yt_title
+                        text: "title"
+                        halign: "left"
+                        pos_hint:{"center_x":.4 if root.width>dp(530) else .5,'center_y':1}
+                        # For Testing UI
+
+                        # color: (0,0,0,1)
+                        # canvas.before:
+                        #     Color:
+                        #         rgba: (1,1,1,1)
+                        #     Rectangle:
+                        #         size: self.size
+                        #         pos: self.pos
+
+                    Label:
+                        id: yt_details
+                        text: "details"
+                        halign: "left"
+                        pos_hint:{"center_x":.4 if root.width>dp(530) else .5,'center_y':.5}
+                        # For Testing UI
+
+                        # color: (0,0,0,1)
+                        # canvas.before:
+                        #     Color:
+                        #         rgba: (1,1,1,1)
+                        #     Rectangle:
+                        #         size: self.size
+                        #         pos: self.pos
+
+                    BoxLayout:
+                        orientation:"horizontal" if root.width>dp(530) else 'vertical'
+                        adaptive_height:True
+                        spacing:"15dp"
+                        id: buttons
+                        disabled: True
+                        color: (1,1,1,1)
+                        RoundedButton:
+                            id: mp4
+                            text: "MP4"
+                            on_release: root.MP4download()
+                            pos_hint:{"center_x":.5,'center_y':.5}
+
+                        RoundedButton:
+                            id: mp3
+                            text: "MP3"
+                            on_release: root.MP3download()
+                            pos_hint:{"center_x":.5,'center_y':.5}
+
+        BoxLayout:
+            id: progress_details
+            orientation: "vertical"
+            opacity: 0
+
+            Label:
+                id: p_percent
+                text: "0%"
+                pos_hint: {"center_x": 0.5}
+
+            ProgressBar:
+                id: progressbar
+                value: 0
+                min: 0
+                max: 100
+                pos_hint: {"center_x":.5,'center_y':1}
+                size_hint_y:None
+                height:'30dp'
+
+
+<RoundedButton@Button>:
+    background_color: (0, 0, 0, 0)
+    background_normal: ''
+    canvas.before:
+        Color:
+            rgba: (48/255, 84/255, 150/255, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [10]
