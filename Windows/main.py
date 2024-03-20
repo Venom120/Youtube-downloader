@@ -5,7 +5,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 import tkinter
 import customtkinter as cust
-from pytube import YouTube
+from pytube import YouTube, Playlist
 from PIL import Image
 from io import BytesIO
 import os, requests, threading
@@ -35,10 +35,37 @@ def show_details():
     thumbnail_label.configure(text="",image=None)
     try:
         ytLink = link_input.get()
-        yt = YouTube(ytLink)
-        time = str(f"{yt.length//60}m:{(yt.length%60 if yt.length>=10 else ('0'+str(yt.length%60)))}s   {yt.streams.get_highest_resolution().resolution}")
-        video_label.configure(text=f"{yt.title}\n{time}", text_color="white", justify="left")
-        temp_img = url_to_image(yt.thumbnail_url)
+        # check weather the link is playlist link or video link
+        if "playlist" in ytLink:
+            try:
+                yt = Playlist(ytLink)
+                temp_img = url_to_image(str(yt.videos[0].thumbnail_url))
+                time = str(f"{yt.length} videos in this playlist\nAll will be Downloaded")
+                video_label.configure(text=time, text_color="white", justify="left")
+            except Exception as ex:
+                print(ex)
+                p_percent.configure(text="0%")
+                progressbar.set(0)
+                mp4button.configure(text="", state="disabled", fg_color="transparent")
+                mp3button.configure(text="", state="disabled", fg_color="transparent")
+                finishLabel.configure(text="Invalid Link", text_color="red")
+                video_label.configure(text="")
+                thumbnail_label.configure(text="",image=None)
+        else:
+            try:
+                yt = YouTube(ytLink)
+                time = str(f"{yt.length//60}m:{(yt.length%60 if yt.length>=10 else ('0'+str(yt.length%60)))}s {yt.streams.get_highest_resolution().resolution}")
+                temp_img = url_to_image(yt.thumbnail_url)
+                video_label.configure(text=f"{yt.title}\n{time}", text_color="white", justify="left")
+            except:
+                print(ex)
+                p_percent.configure(text="0%")
+                progressbar.set(0)
+                mp4button.configure(text="", state="disabled", fg_color="transparent")
+                mp3button.configure(text="", state="disabled", fg_color="transparent")
+                finishLabel.configure(text="Invalid Link", text_color="red")
+                video_label.configure(text="")
+                thumbnail_label.configure(text="",image=None)
         if temp_img:
             thumbnail = cust.CTkImage(light_image=temp_img,dark_image=temp_img, size=(190,100))
             thumbnail_label.configure(image=thumbnail)
@@ -46,8 +73,9 @@ def show_details():
             mp3button.configure(text="MP3", state="normal", fg_color=["#3a7ebf", "#1f538d"], text_color="white")
         else:
             finishLabel.configure(text="No Internet", text_color="red")
+            pass
     except Exception as ex:
-        print(ex.with_traceback)
+        print(ex)
         p_percent.configure(text="0%")
         progressbar.set(0)
         mp4button.configure(text="", state="disabled", fg_color="transparent")
@@ -55,40 +83,53 @@ def show_details():
         finishLabel.configure(text="Invalid Link", text_color="red")
         video_label.configure(text="")
         thumbnail_label.configure(text="",image=None)
+
 def MP4download():
     p_percent.configure(text="0%")
     progressbar.set(0)
     finishLabel.configure(text="")
     mp4button.configure(text="MP4", text_color = "white", state="disabled")
     mp3button.configure(text="MP3", text_color = "white", state="disabled")
-    def download_thread():
+    def download_thread(video):
         try:
-            ytLink = link_input.get()
-            yt = YouTube(ytLink, on_progress_callback=progress_check,on_complete_callback=complete)
+            yt = YouTube(video, on_progress_callback=progress_check,on_complete_callback=complete)
             stream = yt.streams.filter(progressive=True).get_highest_resolution()
             stream.download(downloads_path, filename=f"{stream.default_filename}")
             mp4button.configure(text="Downloaded", text_color = "lime", state="normal")
             mp3button.configure(text="MP3", text_color = "white", state="normal")
         except Exception as ex:
-            finishLabel.configure(text=f"{ex}")
-    threading.Thread(target=download_thread).start()
+            finishLabel.configure(text=f"{ex}",text_color="red")
+    ytLink = link_input.get()
+    # First getting the link(s) in list then using loop to send each link
+    if "playlist" in ytLink:
+        videos=Playlist(ytLink).video_urls
+    else:
+        videos=[str(ytLink)]
+    for video in videos:
+        threading.Thread(target=download_thread(video)).start()
+
 def MP3download():
     p_percent.configure(text="0%")
     progressbar.set(0)
     finishLabel.configure(text="")
     mp4button.configure(text="MP4", text_color = "white", state="disabled")
     mp3button.configure(text="MP3", text_color = "white", state="disabled")
-    def download_thread():
+    def download_thread(video33):
         try:
-            ytLink = link_input.get()
-            yt = YouTube(ytLink, on_progress_callback=progress_check,on_complete_callback=complete)
+            yt = YouTube(video33, on_progress_callback=progress_check,on_complete_callback=complete)
             stream = yt.streams.filter(only_audio=True).first()
             stream.download(downloads_path, filename=f"{yt.title}.mp3")
             mp4button.configure(text="MP4", text_color = "white", state="normal")
             mp3button.configure(text="Downloaded", text_color = "lime", state="normal")
         except Exception as ex:
             finishLabel.configure(text=f"{ex}")
-    threading.Thread(target=download_thread).start()
+    ytLink = link_input.get()
+    if "playlist" in ytLink:
+        videos3=Playlist(ytLink).video_urls
+    else:
+        videos3=[str(ytLink)]
+    for video3 in videos3:
+        threading.Thread(target=download_thread(video3)).start()
 def progress_check(stream, chunk, bytes_remaining):
     total_size = stream.filesize
     bytes_downloaded = total_size - bytes_remaining
