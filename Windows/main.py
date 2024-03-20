@@ -98,16 +98,8 @@ def MP4download():
             mp4button.configure(text="Downloaded", text_color = "lime", state="normal")
             mp3button.configure(text="MP3", text_color = "white", state="normal")
         except Exception as ex:
-            finishLabel.configure(text=f"{ex}",text_color="red")
-    ytLink = link_input.get()
-    # First getting the link(s) in list then using loop to send each link
-    if "playlist" in ytLink:
-        videos=Playlist(ytLink).video_urls
-    else:
-        videos=[str(ytLink)]
-    for video in videos:
-        threading.Thread(target=download_thread(video)).start()
-
+            finishLabel.configure(text=f"{ex}")
+    threading.Thread(target=download_thread).start()
 def MP3download():
     p_percent.configure(text="0%")
     progressbar.set(0)
