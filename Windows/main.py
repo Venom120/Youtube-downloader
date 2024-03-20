@@ -84,7 +84,7 @@ def MP3download():
             yt = YouTube(ytLink, on_progress_callback=progress_check,on_complete_callback=complete)
             stream = yt.streams.filter(only_audio=True).first()
             stream.download(downloads_path, filename=f"{yt.title}.mp3")
-            mp4button.configure(text="MP3", text_color = "white", state="normal")
+            mp4button.configure(text="MP4", text_color = "white", state="normal")
             mp3button.configure(text="Downloaded", text_color = "lime", state="normal")
         except Exception as ex:
             finishLabel.configure(text=f"{ex}")
