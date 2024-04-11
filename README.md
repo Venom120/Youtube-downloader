@@ -12,8 +12,8 @@ Just run the YTDownloader.exe file from the releases
 
 ## Android
 
-Just open the YTDownloader.apk file from the releases then a pop up from 
-Google play Protect will show click "more details" then click "install anyway" 
+Just open the YTDownloader.apk file from the releases then a pop up will open from
+Google play Protect, click "more details" then click "install anyway" 
 and your Application will be installed
 
 ## Preview
