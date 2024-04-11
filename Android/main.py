@@ -14,7 +14,7 @@ from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window 
-from pytube import YouTube
+from pytube import YouTube,Playlist
 import os.path, threading, pytube
 from kivy.properties import StringProperty
 class YtDownloader(ScrollView):
@@ -95,12 +95,11 @@ class YtDownloader(ScrollView):
         self.ids.buttons.color = (1,1,1,1)
         app = App.get_running_app()
 
-        def download_thread():
+        def download_thread(video4):
             try:
-                ytLink = self.ids.link.text
-                yt = YouTube(ytLink, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
+                yt = YouTube(video4, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
                 stream = yt.streams.filter(progressive=True).get_highest_resolution()
-                stream.download(self.output_path, filename=f"{stream.default_filename}")
+                stream.download(self.output_path, filename=f"{stream.default_filename.replace(' ','_')}")
                 self.ids.mp4.text = "Downloaded"
                 self.ids.mp4.color = (0,1,0,0.8)
                 self.ids.mp3.text = "MP3"
@@ -108,8 +107,13 @@ class YtDownloader(ScrollView):
                 self.ids.buttons.disabled = False
             except Exception as ex:
                 self.show_error(f"{ex}")
-
-        threading.Thread(target=download_thread).start()
+        ytLink = self.ids.link.text
+        if "playlist" in ytLink:
+            videos=Playlist(ytLink).video_urls
+        else:
+            videos=[str(ytLink)]
+        for video in videos:
+            threading.Thread(target=download_thread(video)).start()
 
     def MP3download(self):
         self.ids.progressbar.value = 0
@@ -119,12 +123,11 @@ class YtDownloader(ScrollView):
         self.ids.mp3.text = "MP3"
         self.ids.buttons.disabled = True
 
-        def download_thread():
+        def download_thread(video33):
             try:
-                ytLink = self.ids.link.text
-                yt = YouTube(ytLink, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
+                yt = YouTube(video33, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
                 stream = yt.streams.filter(only_audio=True).first()
-                stream.download(self.output_path, filename=f"{yt.title}.mp3")
+                stream.download(self.output_path, filename=f"{stream.default_filename.replace(' ','_')}.mp3")
                 self.ids.mp3.text = "Downloaded"
                 self.ids.mp3.color = (0,1,0,0.8)
                 self.ids.mp4.text = "MP4"
@@ -133,7 +136,13 @@ class YtDownloader(ScrollView):
             except Exception as ex:
                 self.show_error(f"{ex}")
 
-        threading.Thread(target=download_thread).start()
+        ytLink = self.ids.link.text
+        if "playlist" in ytLink:
+            videos3=Playlist(ytLink).video_urls
+        else:
+            videos3=[str(ytLink)]
+        for video3 in videos3:
+            threading.Thread(target=download_thread(video3)).start()
 
 
 class YoutubeDownloader(App):

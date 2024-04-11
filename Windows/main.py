@@ -94,12 +94,19 @@ def MP4download():
         try:
             yt = YouTube(video, on_progress_callback=progress_check,on_complete_callback=complete)
             stream = yt.streams.filter(progressive=True).get_highest_resolution()
-            stream.download(downloads_path, filename=f"{stream.default_filename}")
+            stream.download(downloads_path, filename=f"{stream.default_filename.replace(' ','_')}")
             mp4button.configure(text="Downloaded", text_color = "lime", state="normal")
             mp3button.configure(text="MP3", text_color = "white", state="normal")
         except Exception as ex:
-            finishLabel.configure(text=f"{ex}")
-    threading.Thread(target=download_thread).start()
+            finishLabel.configure(text=f"{ex}",text_color="red")
+    ytLink = link_input.get()
+    if "playlist" in ytLink:
+        videos=Playlist(ytLink).video_urls
+    else:
+        videos=[str(ytLink)]
+    for video in videos:
+        threading.Thread(target=download_thread(video)).start()
+
 def MP3download():
     p_percent.configure(text="0%")
     progressbar.set(0)
@@ -110,7 +117,7 @@ def MP3download():
         try:
             yt = YouTube(video33, on_progress_callback=progress_check,on_complete_callback=complete)
             stream = yt.streams.filter(only_audio=True).first()
-            stream.download(downloads_path, filename=f"{yt.title}.mp3")
+            stream.download(downloads_path, filename=f"{stream.default_filename.replace(' ','_')}.mp3")
             mp4button.configure(text="MP4", text_color = "white", state="normal")
             mp3button.configure(text="Downloaded", text_color = "lime", state="normal")
         except Exception as ex:
