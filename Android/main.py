@@ -46,7 +46,12 @@ class YtDownloader(ScrollView):
             self.show_error("Update details failed")
         try:
             ytLink = self.ids.link.text
-            yt = YouTube(ytLink)
+            if "playlist" in ytLink:
+                yt = Playlist(ytLink)[0]
+                yt=YouTube(yt)
+            else:
+                yt = YouTube(ytLink)
+
             yt.title = f"{yt.title[0:30]} ..."
             time = f"{yt.length // 60}m:{(yt.length % 60 if yt.length >= 10 else ('0' + str(yt.length % 60)))}s   {yt.streams.get_highest_resolution().resolution}    {yt.streams.get_highest_resolution().filesize / 1024.0 // 1024}Mb"
             self.ids.progress_details.opacity = 1
@@ -54,10 +59,12 @@ class YtDownloader(ScrollView):
             self.ids.Youtube_details.opacity = 1
             self.ids.yt_title.text = f"{yt.title}"
             self.ids.yt_details.text = f"{time}"
-            self.ids.thumbnail_image.opacity: 1
+            self.ids.thumbnail_image.opacity = 1
             self.ids.buttons.disabled = False
             self.ids.mp4.text = "MP4"
+            self.ids.mp4.color = (1,1,1,1)
             self.ids.mp3.text = "MP3"
+            self.ids.mp3.color = (1,1,1,1)
         except pytube.exceptions.RegexMatchError as reg_error:
             self.show_error("Invalid Link")
         except Exception as ex:
@@ -74,7 +81,7 @@ class YtDownloader(ScrollView):
             self.ids.progressbar.value = value
             self.ids.p_percent.text = f"{int(value)}%"
         except Exception as ex:
-            self.show_error("progress_check error")
+            self.show_error("progress check error")
 
     def complete_func(self, *args):
         try:
@@ -82,7 +89,7 @@ class YtDownloader(ScrollView):
             self.ids.p_percent.text = "100%"
             self.ids.Youtube_details.opacity = 1
         except Exception as ex:
-            self.show_error("progress_check error")
+            self.show_error("complete function error")
         
 
     def MP4download(self):
@@ -93,27 +100,26 @@ class YtDownloader(ScrollView):
         self.ids.mp4.text = "MP4"
         self.ids.buttons.disabled = True
         self.ids.buttons.color = (1,1,1,1)
-        app = App.get_running_app()
-
-        def download_thread(video4):
-            try:
-                yt = YouTube(video4, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
-                stream = yt.streams.filter(progressive=True).get_highest_resolution()
-                stream.download(self.output_path, filename=f"{stream.default_filename.replace(' ','_')}")
-                self.ids.mp4.text = "Downloaded"
-                self.ids.mp4.color = (0,1,0,0.8)
-                self.ids.mp3.text = "MP3"
-                self.ids.mp3.color = (1,1,1,1)
-                self.ids.buttons.disabled = False
-            except Exception as ex:
-                self.show_error(f"{ex}")
         ytLink = self.ids.link.text
         if "playlist" in ytLink:
             videos=Playlist(ytLink).video_urls
         else:
             videos=[str(ytLink)]
         for video in videos:
-            threading.Thread(target=download_thread(video)).start()
+            threading.Thread(target=self.thread_mp4(video)).start()
+
+    def thread_mp4(self,video4):
+        try:
+            yt = YouTube(video4, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
+            stream = yt.streams.filter(progressive=True).get_highest_resolution()
+            stream.download(self.output_path, filename=f"{stream.default_filename.replace(' ','_')}")
+            self.ids.mp4.text = "Downloaded"
+            self.ids.mp4.color = (0,1,0,0.8)
+            self.ids.mp3.text = "MP3"
+            self.ids.mp3.color = (1,1,1,1)
+            self.ids.buttons.disabled = False
+        except Exception as ex:
+            self.show_error(f"{str(ex)[0:50]}\n{str(ex)[50:]}")
 
     def MP3download(self):
         self.ids.progressbar.value = 0
@@ -122,28 +128,25 @@ class YtDownloader(ScrollView):
         self.ids.mp4.text = "MP4"
         self.ids.mp3.text = "MP3"
         self.ids.buttons.disabled = True
-
-        def download_thread(video33):
-            try:
-                yt = YouTube(video33, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
-                stream = yt.streams.filter(only_audio=True).first()
-                stream.download(self.output_path, filename=f"{stream.default_filename.replace(' ','_')}.mp3")
-                self.ids.mp3.text = "Downloaded"
-                self.ids.mp3.color = (0,1,0,0.8)
-                self.ids.mp4.text = "MP4"
-                self.ids.mp4.color = (1,1,1,1)
-                self.ids.buttons.disabled = False
-            except Exception as ex:
-                self.show_error(f"{ex}")
-
         ytLink = self.ids.link.text
         if "playlist" in ytLink:
             videos3=Playlist(ytLink).video_urls
         else:
             videos3=[str(ytLink)]
         for video3 in videos3:
-            threading.Thread(target=download_thread(video3)).start()
-
+            threading.Thread(target=self.thread_mp3(video3)).start()
+    def thread_mp3(self,video33):
+        try:
+            yt = YouTube(video33, on_progress_callback=self.progress_check, on_complete_callback=self.complete_func)
+            stream = yt.streams.filter(only_audio=True).first()
+            stream.download(self.output_path, filename=f"{stream.default_filename[:-4].replace(' ','_')}.mp3")
+            self.ids.mp3.text = "Downloaded"
+            self.ids.mp3.color = (0,1,0,0.8)
+            self.ids.mp4.text = "MP4"
+            self.ids.mp4.color = (1,1,1,1)
+            self.ids.buttons.disabled = False
+        except Exception as ex:
+            self.show_error(f"{str(ex)[0:50]}\n{str(ex)[50:]}")
 
 class YoutubeDownloader(App):
     def build(self):
