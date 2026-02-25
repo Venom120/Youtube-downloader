@@ -25,10 +25,11 @@ from kivy.uix.modalview import ModalView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.progressbar import ProgressBar
+from kivy.uix.widget import Widget
 from kivy.core.window import Window
 from kivy.properties import StringProperty
 from kivy.network.urlrequest import UrlRequest
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
 from kivy.utils import get_color_from_hex as hex
 
 from models.video_model import VideoInfo, SearchResult
@@ -200,16 +201,24 @@ class YoutubeDownloaderApp(App):
         
         container = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
         
-        header = BoxLayout(size_hint_y=None, height=dp(32))
-        title = Label(text='Downloads', color=hex('#ffffff'), bold=True)
-        close_btn = Button(text='✕', size_hint_x=None, width=dp(36))
-        close_btn.bind(on_release=lambda _btn: self.downloads_modal.dismiss())
+        # Enhanced header with folder button
+        header = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+        title = Label(text='📥 Downloads', color=hex('#ffffff'), bold=True, font_size=sp(14))
         header.add_widget(title)
+        header.add_widget(Widget(size_hint_x=1))
+        
+        # Folder button to open downloads location
+        folder_btn = Button(text='📁', size_hint_x=None, width=dp(36), background_color=hex('#0066cc'))
+        folder_btn.bind(on_release=lambda _btn: self._open_downloads_folder())  # type: ignore
+        header.add_widget(folder_btn)
+        
+        close_btn = Button(text='✕', size_hint_x=None, width=dp(36), background_color=hex('#cc0000'))
+        close_btn.bind(on_release=lambda _btn: self.downloads_modal.dismiss() if self.downloads_modal else None)  # type: ignore
         header.add_widget(close_btn)
         
         scroll = ScrollView(do_scroll_x=False)
         list_layout = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
-        list_layout.bind(minimum_height=list_layout.setter('height'))
+        list_layout.bind(minimum_height=list_layout.setter('height'))  # type: ignore
         scroll.add_widget(list_layout)
         
         self.downloads_list = list_layout
@@ -224,6 +233,26 @@ class YoutubeDownloaderApp(App):
         container.add_widget(header)
         container.add_widget(scroll)
         self.downloads_modal.add_widget(container)
+    
+    def _open_downloads_folder(self):
+        """Open downloads folder in file manager"""
+        if platform == 'android':
+            try:
+                from jnius import autoclass  # type: ignore
+                Toast = autoclass('android.widget.Toast')
+                PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                
+                Toast.makeText(
+                    PythonActivity.mActivity,
+                    f"Downloads saved to: {self.download_path}",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            except Exception:
+                pass
+        
+        # Fallback: just show download path
+        self.main_widget.ids.status_label.text = f"Downloads: {self.download_path}"
     
     def open_downloads_panel(self):
         if self.downloads_modal:
@@ -245,22 +274,83 @@ class YoutubeDownloaderApp(App):
         if self.downloads_empty_label and self.downloads_empty_label.parent:
             self.downloads_list.remove_widget(self.downloads_empty_label)
         
-        row = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(96), padding=dp(8), spacing=dp(6))
+        # Main container with background styling
+        row = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            height=dp(110),
+            padding=dp(8),
+            spacing=dp(4),
+            canvas_before=None
+        )
+        
+        # Add background color
+        from kivy.graphics import Color, RoundedRectangle
+        with row.canvas.before:  # type: ignore
+            Color(rgba=hex('#2b2b2b') if hex('#2b2b2b') else (0.17, 0.17, 0.17, 1))
+            RoundedRectangle(size=row.size, pos=row.pos, radius=[8])
+        
+        row.bind(pos=self._update_bg, size=self._update_bg)  # type: ignore
+        
+        # Title
         title_text = video.title if len(video.title) <= 50 else f"{video.title[:47]}..."
+        title = Label(
+            text=title_text,
+            size_hint_y=None,
+            height=dp(20),
+            color=hex('#ffffff'),
+            font_size=sp(12),
+            bold=True,
+            halign='left',
+            valign='top',
+            text_size=(None, None)
+        )
+        
+        # Format and status label
         format_label = 'Playlist' if is_playlist else format_type.upper()
+        meta = Label(
+            text=f"{format_label} · Queued",
+            size_hint_y=None,
+            height=dp(16),
+            color=hex('#bbbbbb'),
+            font_size=sp(10),
+            halign='left',
+            valign='top',
+            text_size=(None, None)
+        )
         
-        title = Label(text=title_text, size_hint_y=None, height=dp(18), color=hex('#ffffff'))
-        meta = Label(text=f"{format_label} · Queued", size_hint_y=None, height=dp(16), color=hex('#bbbbbb'))
-        progress = ProgressBar(max=100, value=0)
+        # Progress bar
+        progress = ProgressBar(
+            max=100,
+            value=0,
+            size_hint_y=None,
+            height=dp(4)
+        )
         
-        actions = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(6))
-        pause_btn = Button(text='Pause', size_hint_x=None, width=dp(80))
-        cancel_btn = Button(text='Cancel', size_hint_x=None, width=dp(80))
-        pause_btn.bind(on_release=lambda _btn: self._on_pause_resume_clicked(download_id))
-        cancel_btn.bind(on_release=lambda _btn: self._on_cancel_clicked(download_id))
+        # Action buttons
+        actions = BoxLayout(size_hint_y=None, height=dp(32), spacing=dp(6))
+        pause_btn = Button(
+            text='⏸ Pause',
+            size_hint_x=None,
+            width=dp(85),
+            background_color=hex('#0066cc'),
+            font_size=sp(10)
+        )
+        cancel_btn = Button(
+            text='✕ Cancel',
+            size_hint_x=None,
+            width=dp(85),
+            background_color=hex('#cc0000'),
+            font_size=sp(10)
+        )
+        
+        pause_btn.bind(on_release=lambda _btn: self._on_pause_resume_clicked(download_id))  # type: ignore
+        cancel_btn.bind(on_release=lambda _btn: self._on_cancel_clicked(download_id))  # type: ignore
+        
         actions.add_widget(pause_btn)
         actions.add_widget(cancel_btn)
         
+        # Add widgets to row
         row.add_widget(title)
         row.add_widget(meta)
         row.add_widget(progress)
@@ -277,6 +367,15 @@ class YoutubeDownloaderApp(App):
         
         self._update_downloads_button()
     
+    def _update_bg(self, instance, value):
+        """Update background rectangle on size/pos change"""
+        from kivy.graphics import Color, RoundedRectangle
+        if instance.canvas.before:  # type: ignore
+            instance.canvas.before.clear()  # type: ignore
+        with instance.canvas.before:  # type: ignore
+            Color(rgba=hex('#2b2b2b') if hex('#2b2b2b') else (0.17, 0.17, 0.17, 1))
+            RoundedRectangle(size=instance.size, pos=instance.pos, radius=[8])
+    
     def _update_download_item_progress(self, download_id: str, percentage: float):
         item = self.download_items.get(download_id)
         if not item:
@@ -292,14 +391,45 @@ class YoutubeDownloaderApp(App):
             return
         
         meta_prefix = item['meta'].text.split('·')[0].strip()
-        status_text = status
-        if error_msg:
-            status_text = f"{status}: {error_msg[:30]}"
+        
+        # Format status text
+        if status == "Completed":
+            status_text = "✓ Completed"
+        elif status == "Canceled":
+            status_text = "⊘ Canceled"
+        elif status == "Error":
+            status_text = f"❌ {error_msg[:30]}" if error_msg else "❌ Error"
+        else:
+            status_text = status
+            
         item['meta'].text = f"{meta_prefix} · {status_text}"
         
+        # Disable buttons for terminal states
         if status in {"Completed", "Canceled", "Error"}:
             item['pause_btn'].disabled = True
             item['cancel_btn'].disabled = True
+            
+            # Auto-remove item after 2 seconds
+            Clock.schedule_once(
+                lambda _dt: self._remove_download_item(download_id),
+                2.0
+            )
+        
+        self._update_downloads_button()
+    
+    def _remove_download_item(self, download_id: str):
+        """Remove a download item from the list"""
+        item = self.download_items.get(download_id)
+        if item and item['row'].parent and self.downloads_list:
+            self.downloads_list.remove_widget(item['row'])  # type: ignore
+        
+        if download_id in self.download_items:
+            del self.download_items[download_id]
+        
+        # Show empty label if no more items
+        if not self.download_items and self.downloads_empty_label and self.downloads_list:
+            if not self.downloads_empty_label.parent:
+                self.downloads_list.add_widget(self.downloads_empty_label)  # type: ignore
         
         self._update_downloads_button()
     
@@ -310,11 +440,11 @@ class YoutubeDownloaderApp(App):
         
         if task.status == 'paused':
             if self.download_controller.resume_download(download_id):
-                self.download_items[download_id]['pause_btn'].text = 'Pause'
+                self.download_items[download_id]['pause_btn'].text = '⏸ Pause'
                 self._set_download_item_status(download_id, 'Downloading')
         else:
             if self.download_controller.pause_download(download_id):
-                self.download_items[download_id]['pause_btn'].text = 'Resume'
+                self.download_items[download_id]['pause_btn'].text = '▶ Resume'
                 self._set_download_item_status(download_id, 'Paused')
     
     def _on_cancel_clicked(self, download_id: str):
@@ -325,15 +455,18 @@ class YoutubeDownloaderApp(App):
         download_id = None
         
         def on_progress(p: float):
-            Clock.schedule_once(lambda _dt: self._update_download_item_progress(download_id, p))
+            if download_id:
+                Clock.schedule_once(lambda _dt: self._update_download_item_progress(download_id, p))  # type: ignore
             Clock.schedule_once(lambda _dt: card.update_progress(p))
         
         def on_complete(_filename: str):
-            Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Completed'))
+            if download_id:
+                Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Completed'))  # type: ignore
             Clock.schedule_once(lambda _dt: card.download_complete(format_type))
         
         def on_error(error: str):
-            Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Error', error))
+            if download_id:
+                Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Error', error))  # type: ignore
             Clock.schedule_once(lambda _dt: self.handle_download_error(error, card))
         
         if video.is_playlist:

@@ -39,7 +39,10 @@ jobs:
             libjpeg-dev \
             zlib1g-dev \
             libharfbuzz0b \
-            libwebp7
+            libwebp7 \
+            m4 \
+            pkg-config \
+            git
       
       - name: Install Python dependencies
         run: |
