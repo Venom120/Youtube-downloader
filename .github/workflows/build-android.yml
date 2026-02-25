@@ -51,6 +51,11 @@ jobs:
         run: |
           pip install -r requirements.txt
       
+      - name: Clone python-for-android
+        run: |
+          mkdir -p Android/.buildozer/android/platform
+          git clone https://github.com/kivy/python-for-android.git Android/.buildozer/android/platform/python-for-android
+      
       # - name: Build APK (Debug)
       #   working-directory: ./Android
       #   run: |

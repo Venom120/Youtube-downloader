@@ -380,6 +380,22 @@ class MainWindow:
         )
         title.pack(side="left")
         
+        # Folder button to open downloads directory
+        folder_btn = cust.CTkButton(
+            header,
+            text="📁",
+            width=28,
+            height=28,
+            fg_color=("#eeeeee", "#333333"),
+            hover_color=("#dddddd", "#444444"),
+            text_color=("#333333", "#e0e0e0"),
+            command=self._open_downloads_folder
+        )
+        folder_btn.pack(side="right", padx=(0, 5))
+        
+        # Tooltip for folder button
+        self._create_tooltip(folder_btn, "Open downloads folder")
+        
         close_btn = cust.CTkButton(
             header,
             text="✕",
@@ -428,6 +444,59 @@ class MainWindow:
         y = self.nav_frame.winfo_y() + self.nav_frame.winfo_height() -15
 
         self.downloads_panel.place(relx=1.0, x=-margin_right, y=y, anchor="ne")
+    
+    def _open_downloads_folder(self):
+        """Open the downloads folder in file explorer"""
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(self.download_path, exist_ok=True)
+            
+            # Open folder based on OS
+            if sys.platform == 'win32':
+                import subprocess
+                subprocess.Popen(['explorer', os.path.normpath(self.download_path)])
+            elif sys.platform == 'darwin':  # macOS
+                import subprocess
+                subprocess.Popen(['open', self.download_path])
+            else:  # Linux
+                import subprocess
+                subprocess.Popen(['xdg-open', self.download_path])
+        except Exception as e:
+            self._show_error(f"Could not open folder: {str(e)}")
+    
+    def _create_tooltip(self, widget, text: str):
+        """Create a tooltip for a widget on hover"""
+        tooltip_window = None
+        
+        def on_enter(event):
+            nonlocal tooltip_window
+            if tooltip_window:
+                return
+            
+            # Create tooltip window
+            tooltip_window = tk.Toplevel(self.app)
+            tooltip_window.wm_overrideredirect(True)
+            tooltip_window.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+            
+            label = tk.Label(
+                tooltip_window,
+                text=text,
+                background="#333333",
+                foreground="#e0e0e0",
+                font=("Arial", 9),
+                padx=5,
+                pady=3
+            )
+            label.pack()
+        
+        def on_leave(event):
+            nonlocal tooltip_window
+            if tooltip_window:
+                tooltip_window.destroy()
+                tooltip_window = None
+        
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
     
     def _update_downloads_button(self):
         """Update downloads button text with active count"""
