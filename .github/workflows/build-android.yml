@@ -25,7 +25,18 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '11'
-      
+
+      - name: Update autoconf files
+        run: |
+          autoupdate
+          autoreconf -fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool
+          pip3 install docwriter
+            
       - name: Install system dependencies
         run: |
           sudo apt-get update
