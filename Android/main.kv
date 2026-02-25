@@ -217,27 +217,22 @@
         # ===== NAVIGATION BAR =====
         BoxLayout:
             id: nav_bar
+            size_hint_y: None
+            height: dp(44)
+            padding: dp(8)
+            spacing: dp(8)
+            
             Button:
                 id: back_btn
                 text: '← Back'
                 size_hint: None, None
-                width: dp(100)
+                width: dp(90)
                 height: dp(30)
                 opacity: 0
                 disabled: True
+                background_normal: ''
                 background_color: 0, 0, 0, 0
                 color: hex('#4da6ff')
-                    pos: self.pos
-                    size: self.size
-            
-            MDFlatButton:
-                id: back_btn
-                text: '← Back'
-                size_hint: None, None
-                width: dp(100)
-                height: dp(30)
-                opacity: 0
-                disabled: True
                 on_release: root.back_to_search()
             
             Label:
@@ -248,6 +243,18 @@
                 valign: 'center'
                 text_size: self.size
                 font_size: sp(12)
+            
+            Widget:
+                size_hint_x: 1
+            
+            RoundedButton:
+                id: downloads_btn
+                text: 'Downloads (0)'
+                size_hint: None, None
+                width: dp(140)
+                height: dp(32)
+                bg_color: hex('#0066cc')
+                on_release: app.open_downloads_panel()
         
         # ===== MAIN CONTENT AREA =====
         ScrollView:

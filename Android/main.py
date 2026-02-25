@@ -21,6 +21,10 @@ from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
+from kivy.uix.modalview import ModalView
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
+from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
 from kivy.properties import StringProperty
 from kivy.network.urlrequest import UrlRequest
@@ -77,22 +81,7 @@ class VideoCard(BoxLayout):
         self.ids.mp4_btn.text = "Downloading..."
         self.show_progress()
         
-        if self.video.is_playlist:
-            self.app.download_controller.download_playlist(
-                self.video,
-                format_type='mp4',
-                progress_callback=lambda p: Clock.schedule_once(lambda dt: self.update_progress(p)),
-                complete_callback=lambda f: Clock.schedule_once(lambda dt: self.download_complete('mp4')),
-                error_callback=lambda e: Clock.schedule_once(lambda dt: self.app.handle_download_error(e, self))
-            )
-        else:
-            self.app.download_controller.download_video(
-                self.video,
-                format_type='mp4',
-                progress_callback=lambda p: Clock.schedule_once(lambda dt: self.update_progress(p)),
-                complete_callback=lambda f: Clock.schedule_once(lambda dt: self.download_complete('mp4')),
-                error_callback=lambda e: Clock.schedule_once(lambda dt: self.app.handle_download_error(e, self))
-            )
+        self.app.start_download(self.video, 'mp4', self)
     
     def on_mp3_click(self):
         """Handle MP3 download button click"""
@@ -100,22 +89,7 @@ class VideoCard(BoxLayout):
         self.ids.mp3_btn.text = "Downloading..."
         self.show_progress()
         
-        if self.video.is_playlist:
-            self.app.download_controller.download_playlist(
-                self.video,
-                format_type='mp3',
-                progress_callback=lambda p: Clock.schedule_once(lambda dt: self.update_progress(p)),
-                complete_callback=lambda f: Clock.schedule_once(lambda dt: self.download_complete('mp3')),
-                error_callback=lambda e: Clock.schedule_once(lambda dt: self.app.handle_download_error(e, self))
-            )
-        else:
-            self.app.download_controller.download_video(
-                self.video,
-                format_type='mp3',
-                progress_callback=lambda p: Clock.schedule_once(lambda dt: self.update_progress(p)),
-                complete_callback=lambda f: Clock.schedule_once(lambda dt: self.download_complete('mp3')),
-                error_callback=lambda e: Clock.schedule_once(lambda dt: self.app.handle_download_error(e, self))
-            )
+        self.app.start_download(self.video, 'mp3', self)
     
     def show_progress(self):
         """Show progress bar"""
@@ -188,6 +162,12 @@ class YoutubeDownloaderApp(App):
         self.search_controller = SearchController()
         self.download_controller = DownloadController(self.download_path)
         
+        # Download dropdown state
+        self.download_items = {}
+        self.downloads_modal = None
+        self.downloads_list = None
+        self.downloads_empty_label = None
+        
         # Create download directory if it doesn't exist
         try:
             os.makedirs(self.download_path, exist_ok=True)
@@ -205,7 +185,176 @@ class YoutubeDownloaderApp(App):
         # Create main app widget
         self.main_widget = YTDownloaderApp(app_instance=self)
         
+        # Downloads modal
+        self._create_downloads_modal()
+        
         return self.main_widget
+    
+    def _create_downloads_modal(self):
+        self.downloads_modal = ModalView(
+            size_hint=(0.92, None),
+            height=dp(420),
+            auto_dismiss=True,
+            background_color=(0, 0, 0, 0.35)
+        )
+        
+        container = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(8))
+        
+        header = BoxLayout(size_hint_y=None, height=dp(32))
+        title = Label(text='Downloads', color=hex('#ffffff'), bold=True)
+        close_btn = Button(text='✕', size_hint_x=None, width=dp(36))
+        close_btn.bind(on_release=lambda _btn: self.downloads_modal.dismiss())
+        header.add_widget(title)
+        header.add_widget(close_btn)
+        
+        scroll = ScrollView(do_scroll_x=False)
+        list_layout = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
+        list_layout.bind(minimum_height=list_layout.setter('height'))
+        scroll.add_widget(list_layout)
+        
+        self.downloads_list = list_layout
+        self.downloads_empty_label = Label(
+            text='No active downloads',
+            size_hint_y=None,
+            height=dp(40),
+            color=hex('#bbbbbb')
+        )
+        list_layout.add_widget(self.downloads_empty_label)
+        
+        container.add_widget(header)
+        container.add_widget(scroll)
+        self.downloads_modal.add_widget(container)
+    
+    def open_downloads_panel(self):
+        if self.downloads_modal:
+            self.downloads_modal.open()
+    
+    def _update_downloads_button(self):
+        active_count = 0
+        for task in self.download_controller.get_downloads():
+            if task.status in {"queued", "downloading", "paused"}:
+                active_count += 1
+        
+        if self.main_widget and 'downloads_btn' in self.main_widget.ids:
+            self.main_widget.ids.downloads_btn.text = f"Downloads ({active_count})"
+    
+    def _add_download_item(self, download_id: str, video: VideoInfo, format_type: str, is_playlist: bool):
+        if not self.downloads_list:
+            return
+        
+        if self.downloads_empty_label and self.downloads_empty_label.parent:
+            self.downloads_list.remove_widget(self.downloads_empty_label)
+        
+        row = BoxLayout(orientation='vertical', size_hint_y=None, height=dp(96), padding=dp(8), spacing=dp(6))
+        title_text = video.title if len(video.title) <= 50 else f"{video.title[:47]}..."
+        format_label = 'Playlist' if is_playlist else format_type.upper()
+        
+        title = Label(text=title_text, size_hint_y=None, height=dp(18), color=hex('#ffffff'))
+        meta = Label(text=f"{format_label} · Queued", size_hint_y=None, height=dp(16), color=hex('#bbbbbb'))
+        progress = ProgressBar(max=100, value=0)
+        
+        actions = BoxLayout(size_hint_y=None, height=dp(28), spacing=dp(6))
+        pause_btn = Button(text='Pause', size_hint_x=None, width=dp(80))
+        cancel_btn = Button(text='Cancel', size_hint_x=None, width=dp(80))
+        pause_btn.bind(on_release=lambda _btn: self._on_pause_resume_clicked(download_id))
+        cancel_btn.bind(on_release=lambda _btn: self._on_cancel_clicked(download_id))
+        actions.add_widget(pause_btn)
+        actions.add_widget(cancel_btn)
+        
+        row.add_widget(title)
+        row.add_widget(meta)
+        row.add_widget(progress)
+        row.add_widget(actions)
+        
+        self.downloads_list.add_widget(row)
+        self.download_items[download_id] = {
+            'row': row,
+            'meta': meta,
+            'progress': progress,
+            'pause_btn': pause_btn,
+            'cancel_btn': cancel_btn
+        }
+        
+        self._update_downloads_button()
+    
+    def _update_download_item_progress(self, download_id: str, percentage: float):
+        item = self.download_items.get(download_id)
+        if not item:
+            return
+        
+        item['progress'].value = percentage
+        meta_prefix = item['meta'].text.split('·')[0].strip()
+        item['meta'].text = f"{meta_prefix} · Downloading {int(percentage)}%"
+    
+    def _set_download_item_status(self, download_id: str, status: str, error_msg: Optional[str] = None):
+        item = self.download_items.get(download_id)
+        if not item:
+            return
+        
+        meta_prefix = item['meta'].text.split('·')[0].strip()
+        status_text = status
+        if error_msg:
+            status_text = f"{status}: {error_msg[:30]}"
+        item['meta'].text = f"{meta_prefix} · {status_text}"
+        
+        if status in {"Completed", "Canceled", "Error"}:
+            item['pause_btn'].disabled = True
+            item['cancel_btn'].disabled = True
+        
+        self._update_downloads_button()
+    
+    def _on_pause_resume_clicked(self, download_id: str):
+        task = self.download_controller.get_download(download_id)
+        if not task:
+            return
+        
+        if task.status == 'paused':
+            if self.download_controller.resume_download(download_id):
+                self.download_items[download_id]['pause_btn'].text = 'Pause'
+                self._set_download_item_status(download_id, 'Downloading')
+        else:
+            if self.download_controller.pause_download(download_id):
+                self.download_items[download_id]['pause_btn'].text = 'Resume'
+                self._set_download_item_status(download_id, 'Paused')
+    
+    def _on_cancel_clicked(self, download_id: str):
+        if self.download_controller.cancel_download(download_id):
+            self._set_download_item_status(download_id, 'Canceled')
+    
+    def start_download(self, video: VideoInfo, format_type: str, card: VideoCard):
+        download_id = None
+        
+        def on_progress(p: float):
+            Clock.schedule_once(lambda _dt: self._update_download_item_progress(download_id, p))
+            Clock.schedule_once(lambda _dt: card.update_progress(p))
+        
+        def on_complete(_filename: str):
+            Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Completed'))
+            Clock.schedule_once(lambda _dt: card.download_complete(format_type))
+        
+        def on_error(error: str):
+            Clock.schedule_once(lambda _dt: self._set_download_item_status(download_id, 'Error', error))
+            Clock.schedule_once(lambda _dt: self.handle_download_error(error, card))
+        
+        if video.is_playlist:
+            download_id = self.download_controller.download_playlist(
+                video,
+                format_type=format_type,
+                progress_callback=on_progress,
+                complete_callback=on_complete,
+                error_callback=on_error
+            )
+        else:
+            download_id = self.download_controller.download_video(
+                video,
+                format_type=format_type,
+                progress_callback=on_progress,
+                complete_callback=on_complete,
+                error_callback=on_error
+            )
+        
+        Clock.schedule_once(lambda _dt: self._add_download_item(download_id, video, format_type, video.is_playlist))
+        self._update_downloads_button()
     
     def on_search(self):
         """Handle search button click"""

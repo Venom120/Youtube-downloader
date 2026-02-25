@@ -8,6 +8,7 @@ from .video_model import VideoInfo, SearchResult
 import os
 import tempfile
 import shutil
+import time
 
 
 class YTDLPWrapper:
@@ -52,28 +53,45 @@ class YTDLPWrapper:
             print(f"Warning: Error extracting thumbnail: {e}")
             return ''
     
-    def _progress_hook(self, d: Dict[str, Any]) -> None:
-        """Internal progress hook for yt-dlp"""
-        try:
-            if d.get('status') == 'downloading':
-                # Calculate percentage
-                total = d.get('total_bytes') or d.get('total_bytes_estimate')
-                
-                if total and 'downloaded_bytes' in d:
-                    downloaded = d['downloaded_bytes']
-                    percentage = min(100, (downloaded / total) * 100)
-                    self.current_progress = percentage
-                    
-                    if self._progress_callback:
-                        self._progress_callback(percentage)
-            
-            elif d.get('status') == 'finished':
-                self.current_progress = 100
-                if self._complete_callback:
-                    filename = d.get('filename', 'Unknown')
-                    self._complete_callback(filename)
-        except Exception as e:
-            print(f"Warning: Progress hook error: {e}")
+    def _build_progress_hook(
+        self,
+        progress_callback: Optional[Callable[[float], None]],
+        complete_callback: Optional[Callable[[str], None]],
+        should_cancel: Optional[Callable[[], bool]] = None,
+        should_pause: Optional[Callable[[], bool]] = None
+    ) -> Callable[[Dict[str, Any]], None]:
+        """Create a per-download progress hook to avoid shared state"""
+        def hook(d: Dict[str, Any]) -> None:
+            if should_cancel and should_cancel():
+                raise Exception("Download canceled")
+
+            if should_pause:
+                while should_pause():
+                    if should_cancel and should_cancel():
+                        raise Exception("Download canceled")
+                    time.sleep(0.2)
+
+            try:
+                if d.get('status') == 'downloading':
+                    total = d.get('total_bytes') or d.get('total_bytes_estimate')
+
+                    if total and 'downloaded_bytes' in d:
+                        downloaded = d['downloaded_bytes']
+                        percentage = min(100, (downloaded / total) * 100)
+                        self.current_progress = percentage
+
+                        if progress_callback:
+                            progress_callback(percentage)
+
+                elif d.get('status') == 'finished':
+                    self.current_progress = 100
+                    if complete_callback:
+                        filename = d.get('filename', 'Unknown')
+                        complete_callback(filename)
+            except Exception as e:
+                print(f"Warning: Progress hook error: {e}")
+
+        return hook
     
     def get_video_info(self, url: str) -> Optional[VideoInfo]:
         """
@@ -255,7 +273,9 @@ class YTDLPWrapper:
         url: str,
         format_type: str = 'mp4',
         progress_callback: Optional[Callable[[float], None]] = None,
-        complete_callback: Optional[Callable[[str], None]] = None
+        complete_callback: Optional[Callable[[str], None]] = None,
+        should_cancel: Optional[Callable[[], bool]] = None,
+        should_pause: Optional[Callable[[], bool]] = None
     ) -> bool:
         """
         Download video in specified format
@@ -269,9 +289,13 @@ class YTDLPWrapper:
         Returns:
             True if successful, False otherwise
         """
-        self._progress_callback = progress_callback
-        self._complete_callback = complete_callback
-        
+        progress_hook = self._build_progress_hook(
+            progress_callback,
+            complete_callback,
+            should_cancel=should_cancel,
+            should_pause=should_pause
+        )
+
         if format_type == 'mp3':
             # Use temp directory for MP3 conversion to avoid deleting existing MP4 files
             temp_dir = tempfile.mkdtemp(prefix='ytdl_mp3_')
@@ -284,7 +308,7 @@ class YTDLPWrapper:
                         'preferredcodec': 'mp3',
                         'preferredquality': '192',
                     }],
-                    'progress_hooks': [self._progress_hook],
+                    'progress_hooks': [progress_hook],
                     'quiet': True,
                     'no_warnings': True,
                 }
@@ -339,7 +363,7 @@ class YTDLPWrapper:
             ydl_opts: Dict[str, Any] = {
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                 'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
-                'progress_hooks': [self._progress_hook],
+                'progress_hooks': [progress_hook],
                 'quiet': True,
                 'no_warnings': True,
                 'merge_output_format': 'mp4',
@@ -377,7 +401,9 @@ class YTDLPWrapper:
         url: str,
         format_type: str = 'mp4',
         progress_callback: Optional[Callable[[float], None]] = None,
-        complete_callback: Optional[Callable[[str], None]] = None
+        complete_callback: Optional[Callable[[str], None]] = None,
+        should_cancel: Optional[Callable[[], bool]] = None,
+        should_pause: Optional[Callable[[], bool]] = None
     ) -> bool:
         """
         Download entire playlist
@@ -392,4 +418,11 @@ class YTDLPWrapper:
             True if successful, False otherwise
         """
         # Same as download_video but yt-dlp handles playlists automatically
-        return self.download_video(url, format_type, progress_callback, complete_callback)
+        return self.download_video(
+            url,
+            format_type,
+            progress_callback,
+            complete_callback,
+            should_cancel=should_cancel,
+            should_pause=should_pause
+        )

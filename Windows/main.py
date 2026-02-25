@@ -143,6 +143,13 @@ class MainWindow:
         self.current_playlist = None
         self.card_references = {}  # Map video_id to card for progress updates
         
+        # Download dropdown state
+        self.download_items = {}
+        self.downloads_visible = False
+        self.downloads_panel = None
+        self.downloads_list = None
+        self.downloads_button = None
+        
         # Pagination state
         self.current_search_result = None  # Store all search results
         self.current_page = 1
@@ -242,13 +249,13 @@ class MainWindow:
         self.error_label.pack(padx=15, pady=8)
         
         # ===== NAVIGATION BAR =====
-        nav_frame = cust.CTkFrame(self.app, fg_color=("#f0f0f0", "#262626"), height=50)
-        nav_frame.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
-        nav_frame.grid_propagate(False)
+        self.nav_frame = cust.CTkFrame(self.app, fg_color=("#f0f0f0", "#262626"), height=50)
+        self.nav_frame.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
+        self.nav_frame.grid_propagate(False)
         
         # Back button (for playlist view)
         self.back_button = cust.CTkButton(
-            nav_frame,
+            self.nav_frame,
             text="← Back",
             width=100,
             height=35,
@@ -263,12 +270,29 @@ class MainWindow:
         
         # Status/Title label
         self.status_label = cust.CTkLabel(
-            nav_frame,
+            self.nav_frame,
             text="Search for videos to get started",
             font=cust.CTkFont(size=13, weight="bold"),
             text_color=("#333333", "#e0e0e0")
         )
         self.status_label.pack(side="left", padx=15)
+        
+        # Right navbar area
+        right_nav = cust.CTkFrame(self.nav_frame, fg_color="transparent")
+        right_nav.pack(side="right", padx=15)
+        
+        self.downloads_button = cust.CTkButton(
+            right_nav,
+            text="Downloads (0)",
+            width=140,
+            height=32,
+            font=cust.CTkFont(size=12, weight="bold"),
+            fg_color=("#0066cc", "#0080ff"),
+            hover_color=("#0052a3", "#0066cc"),
+            text_color="white",
+            command=self._toggle_downloads_panel
+        )
+        self.downloads_button.pack()
         
         # ===== MAIN CONTENT AREA =====
         self.scrollable_frame = VerticalListFrame(
@@ -279,6 +303,9 @@ class MainWindow:
         
         # ===== WELCOME MESSAGE =====
         self._show_welcome_message()
+        
+        # Downloads dropdown panel
+        self._create_downloads_panel()
     
     def _show_error(self, error_message: str):
         """Show error in the info banner"""
@@ -327,6 +354,253 @@ class MainWindow:
         """Hide welcome message"""
         if hasattr(self, 'welcome_frame') and self.welcome_frame.winfo_exists():
             self.welcome_frame.destroy()
+    
+    def _create_downloads_panel(self):
+        """Create downloads dropdown panel"""
+        self.downloads_panel = cust.CTkFrame(
+            self.app,
+            fg_color=("#ffffff", "#1a1a1a"),
+            corner_radius=10,
+            border_width=1,
+            border_color=("#cccccc", "#333333"),
+            width=420,
+            height=420
+        )
+        self.downloads_panel.place_forget()
+        self.downloads_panel.grid_propagate(False)
+        
+        header = cust.CTkFrame(self.downloads_panel, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(10, 6))
+        
+        title = cust.CTkLabel(
+            header,
+            text="Downloads",
+            font=cust.CTkFont(size=14, weight="bold"),
+            text_color=("#333333", "#e0e0e0")
+        )
+        title.pack(side="left")
+        
+        close_btn = cust.CTkButton(
+            header,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color=("#eeeeee", "#333333"),
+            hover_color=("#dddddd", "#444444"),
+            text_color=("#333333", "#e0e0e0"),
+            command=self._toggle_downloads_panel
+        )
+        close_btn.pack(side="right")
+        
+        self.downloads_list = cust.CTkScrollableFrame(
+            self.downloads_panel,
+            fg_color="transparent"
+        )
+        self.downloads_list.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        
+        self.downloads_empty_label = cust.CTkLabel(
+            self.downloads_list,
+            text="No active downloads",
+            font=cust.CTkFont(size=12),
+            text_color=("#666666", "#999999")
+        )
+        self.downloads_empty_label.pack(pady=20)
+    
+    def _toggle_downloads_panel(self):
+        """Show or hide the downloads dropdown panel"""
+        if not self.downloads_panel:
+            return
+        
+        if self.downloads_visible:
+            self.downloads_panel.place_forget()
+            self.downloads_visible = False
+            return
+        
+        self._position_downloads_panel()
+        self.downloads_panel.lift()
+        self.downloads_visible = True
+    
+    def _position_downloads_panel(self):
+        self.app.update_idletasks()
+        panel_width = 420
+        panel_height = 420
+        
+        x = max(20, self.app.winfo_width() - panel_width - 20)
+        y = self.nav_frame.winfo_y() + self.nav_frame.winfo_height() + 8
+        
+        self.downloads_panel.place(x=x, y=y, width=panel_width, height=panel_height)
+    
+    def _update_downloads_button(self):
+        """Update downloads button text with active count"""
+        active_count = 0
+        for task in self.download_controller.get_downloads():
+            if task.status in {"queued", "downloading", "paused"}:
+                active_count += 1
+        
+        if self.downloads_button:
+            self.downloads_button.configure(text=f"Downloads ({active_count})")
+    
+    def _add_download_item(self, download_id: str, video: VideoInfo, format_type: str, is_playlist: bool):
+        if not self.downloads_list:
+            return
+        
+        if hasattr(self, 'downloads_empty_label') and self.downloads_empty_label.winfo_exists():
+            self.downloads_empty_label.pack_forget()
+        
+        item = cust.CTkFrame(
+            self.downloads_list,
+            fg_color=("#f7f7f7", "#222222"),
+            corner_radius=8,
+            border_width=1,
+            border_color=("#dddddd", "#333333")
+        )
+        item.pack(fill="x", padx=6, pady=6)
+        item.grid_columnconfigure(0, weight=1)
+        
+        title_text = video.title if len(video.title) <= 50 else f"{video.title[:47]}..."
+        format_label = "Playlist" if is_playlist else format_type.upper()
+        
+        title = cust.CTkLabel(
+            item,
+            text=title_text,
+            font=cust.CTkFont(size=12, weight="bold"),
+            text_color=("#222222", "#e0e0e0")
+        )
+        title.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 2))
+        
+        meta = cust.CTkLabel(
+            item,
+            text=f"{format_label} · Queued",
+            font=cust.CTkFont(size=11),
+            text_color=("#666666", "#999999")
+        )
+        meta.grid(row=1, column=0, sticky="w", padx=10)
+        
+        progress = cust.CTkProgressBar(item, height=6)
+        progress.set(0)
+        progress.grid(row=2, column=0, sticky="ew", padx=10, pady=(6, 8))
+        
+        actions = cust.CTkFrame(item, fg_color="transparent")
+        actions.grid(row=0, column=1, rowspan=3, padx=10, pady=10)
+        
+        pause_btn = cust.CTkButton(
+            actions,
+            text="Pause",
+            width=80,
+            height=26,
+            font=cust.CTkFont(size=11),
+            fg_color=("#555555", "#444444"),
+            hover_color=("#666666", "#555555"),
+            text_color="white",
+            command=lambda: self._on_pause_resume_clicked(download_id)
+        )
+        pause_btn.pack(pady=(0, 6))
+        
+        cancel_btn = cust.CTkButton(
+            actions,
+            text="Cancel",
+            width=80,
+            height=26,
+            font=cust.CTkFont(size=11),
+            fg_color=("#cc0000", "#ff0000"),
+            hover_color=("#990000", "#cc0000"),
+            text_color="white",
+            command=lambda: self._on_cancel_clicked(download_id)
+        )
+        cancel_btn.pack()
+        
+        self.download_items[download_id] = {
+            "frame": item,
+            "title": title,
+            "meta": meta,
+            "progress": progress,
+            "pause_btn": pause_btn,
+            "cancel_btn": cancel_btn
+        }
+        
+        self._update_downloads_button()
+    
+    def _update_download_item_progress(self, download_id: str, percentage: float):
+        item = self.download_items.get(download_id)
+        if not item:
+            return
+        
+        item["progress"].set(percentage / 100)
+        status = "Downloading" if percentage < 100 else "Complete"
+        meta_text = item["meta"].cget("text").split("·")[0].strip()
+        item["meta"].configure(text=f"{meta_text} · {status} {int(percentage)}%")
+    
+    def _set_download_item_status(self, download_id: str, status: str, error_msg: Optional[str] = None):
+        item = self.download_items.get(download_id)
+        if not item:
+            return
+        
+        meta_prefix = item["meta"].cget("text").split("·")[0].strip()
+        status_text = status
+        if error_msg:
+            status_text = f"{status}: {error_msg[:30]}"
+        item["meta"].configure(text=f"{meta_prefix} · {status_text}")
+        
+        if status in {"Completed", "Canceled", "Error"}:
+            item["pause_btn"].configure(state="disabled")
+            item["cancel_btn"].configure(state="disabled")
+        
+        self._update_downloads_button()
+    
+    def _on_pause_resume_clicked(self, download_id: str):
+        task = self.download_controller.get_download(download_id)
+        if not task:
+            return
+        
+        if task.status == "paused":
+            if self.download_controller.resume_download(download_id):
+                self.download_items[download_id]["pause_btn"].configure(text="Pause")
+                self._set_download_item_status(download_id, "Downloading")
+        else:
+            if self.download_controller.pause_download(download_id):
+                self.download_items[download_id]["pause_btn"].configure(text="Resume")
+                self._set_download_item_status(download_id, "Paused")
+    
+    def _on_cancel_clicked(self, download_id: str):
+        if self.download_controller.cancel_download(download_id):
+            self._set_download_item_status(download_id, "Canceled")
+    
+    def _run_ui(self, callback: Callable[[], None]):
+        self.app.after(0, callback)
+    
+    def _start_download(self, video: VideoInfo, format_type: str, card: VideoCard, is_playlist: bool):
+        download_id = None
+        
+        def on_progress(p: float):
+            self._run_ui(lambda: self._update_download_item_progress(download_id, p))
+        
+        def on_complete(_filename: str):
+            self._run_ui(lambda: self._set_download_item_status(download_id, "Completed"))
+            self._run_ui(lambda: card.download_complete(format_type))
+        
+        def on_error(error: str):
+            self._run_ui(lambda: self._set_download_item_status(download_id, "Error", error))
+            self._run_ui(lambda: self._on_download_error(error, card))
+        
+        if is_playlist:
+            download_id = self.download_controller.download_playlist(
+                video,
+                format_type=format_type,
+                progress_callback=on_progress,
+                complete_callback=on_complete,
+                error_callback=on_error
+            )
+        else:
+            download_id = self.download_controller.download_video(
+                video,
+                format_type=format_type,
+                progress_callback=on_progress,
+                complete_callback=on_complete,
+                error_callback=on_error
+            )
+        
+        self._add_download_item(download_id, video, format_type, is_playlist)
+        self._update_downloads_button()
     
     def _on_search(self):
         """Handle search button click or Enter key"""
@@ -478,45 +752,11 @@ class MainWindow:
     
     def _on_download_mp4(self, video: VideoInfo, card: VideoCard):
         """Handle MP4 download"""
-        if video.is_playlist:
-            # Download entire playlist
-            self.download_controller.download_playlist(
-                video,
-                format_type='mp4',
-                progress_callback=lambda p: card.update_progress(p),
-                complete_callback=lambda f: card.download_complete('mp4'),
-                error_callback=lambda e: self._on_download_error(e, card)
-            )
-        else:
-            # Download single video
-            self.download_controller.download_video(
-                video,
-                format_type='mp4',
-                progress_callback=lambda p: card.update_progress(p),
-                complete_callback=lambda f: card.download_complete('mp4'),
-                error_callback=lambda e: self._on_download_error(e, card)
-            )
+        self._start_download(video, "mp4", card, is_playlist=video.is_playlist)
     
     def _on_download_mp3(self, video: VideoInfo, card: VideoCard):
         """Handle MP3 download"""
-        if video.is_playlist:
-            # Download entire playlist as MP3
-            self.download_controller.download_playlist(
-                video,
-                format_type='mp3',
-                progress_callback=lambda p: card.update_progress(p),
-                complete_callback=lambda f: card.download_complete('mp3'),
-                error_callback=lambda e: self._on_download_error(e, card)
-            )
-        else:
-            # Download single video as MP3
-            self.download_controller.download_video(
-                video,
-                format_type='mp3',
-                progress_callback=lambda p: card.update_progress(p),
-                complete_callback=lambda f: card.download_complete('mp3'),
-                error_callback=lambda e: self._on_download_error(e, card)
-            )
+        self._start_download(video, "mp3", card, is_playlist=video.is_playlist)
 
     def _on_download_error(self, error: str, card: VideoCard):
         """Handle download errors and check for login requirements"""
