@@ -371,10 +371,45 @@ class YTDLPWrapper:
             
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
-                    ydl.download([url])
+                    info = ydl.extract_info(url, download=True)
+                    filename = info.get('_filename') or os.path.join(self.download_path, f"{info.get('title', 'video')}.mp4")
+                    
+                    # Ensure complete callback is called even if 'finished' hook wasn't triggered
+                    # (e.g., when file already exists and was skipped)
+                    if complete_callback:
+                        complete_callback(filename)
                 return True
             except Exception as e:
                 error_msg = f"Download error: {str(e)}"
+                is_canceled = "canceled" in str(e).lower()
+                
+                # Clean up partial files if download was canceled
+                if is_canceled:
+                    try:
+                        # List all files in download directory
+                        current_time = time.time()
+                        for filename in os.listdir(self.download_path):
+                            filepath = os.path.join(self.download_path, filename)
+                            if not os.path.isfile(filepath):
+                                continue
+                            
+                            # Delete files that are partial/fragment files or very recently created
+                            # (likely from the canceled download)
+                            is_partial = (
+                                filename.endswith(('.part', '.ytdl'))
+                            )
+                            
+                            # Also check if file was modified in last 5 minutes (likely our download)
+                            file_mtime = os.path.getmtime(filepath)
+                            is_recent = (current_time - file_mtime) < 300
+                            
+                            if is_partial or is_recent:
+                                try:
+                                    os.remove(filepath)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
                 
                 # Provide specific error messages
                 error_str = str(e).lower()

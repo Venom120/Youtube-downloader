@@ -363,7 +363,7 @@ class MainWindow:
             corner_radius=10,
             border_width=1,
             border_color=("#cccccc", "#333333"),
-            width=420,
+            width=620,
             height=420
         )
         self.downloads_panel.place_forget()
@@ -421,14 +421,13 @@ class MainWindow:
         self.downloads_visible = True
     
     def _position_downloads_panel(self):
+        if not self.downloads_panel:
+            return
         self.app.update_idletasks()
-        panel_width = 420
-        panel_height = 420
-        
-        x = max(20, self.app.winfo_width() - panel_width - 20)
-        y = self.nav_frame.winfo_y() + self.nav_frame.winfo_height() + 8
-        
-        self.downloads_panel.place(x=x, y=y, width=panel_width, height=panel_height)
+        margin_right = 20
+        y = self.nav_frame.winfo_y() + self.nav_frame.winfo_height() -15
+
+        self.downloads_panel.place(relx=1.0, x=-margin_right, y=y, anchor="ne")
     
     def _update_downloads_button(self):
         """Update downloads button text with active count"""
@@ -440,7 +439,7 @@ class MainWindow:
         if self.downloads_button:
             self.downloads_button.configure(text=f"Downloads ({active_count})")
     
-    def _add_download_item(self, download_id: str, video: VideoInfo, format_type: str, is_playlist: bool):
+    def _add_download_item(self, download_id: Optional[str], video: VideoInfo, format_type: str, is_playlist: bool):
         if not self.downloads_list:
             return
         
@@ -520,7 +519,7 @@ class MainWindow:
         
         self._update_downloads_button()
     
-    def _update_download_item_progress(self, download_id: str, percentage: float):
+    def _update_download_item_progress(self, download_id: Optional[str], percentage: float):
         item = self.download_items.get(download_id)
         if not item:
             return
@@ -530,7 +529,7 @@ class MainWindow:
         meta_text = item["meta"].cget("text").split("·")[0].strip()
         item["meta"].configure(text=f"{meta_text} · {status} {int(percentage)}%")
     
-    def _set_download_item_status(self, download_id: str, status: str, error_msg: Optional[str] = None):
+    def _set_download_item_status(self, download_id: Optional[str], status: str, error_msg: Optional[str] = None):
         item = self.download_items.get(download_id)
         if not item:
             return
@@ -544,10 +543,24 @@ class MainWindow:
         if status in {"Completed", "Canceled", "Error"}:
             item["pause_btn"].configure(state="disabled")
             item["cancel_btn"].configure(state="disabled")
+            # Remove the item after a short delay
+            def remove_item():
+                if download_id in self.download_items:
+                    item_frame = self.download_items[download_id]["frame"]
+                    item_frame.pack_forget()
+                    del self.download_items[download_id]
+                    
+                    # Show empty label if no downloads left
+                    if not self.download_items and hasattr(self, 'downloads_empty_label'):
+                        self.downloads_empty_label.pack(pady=20)
+            
+            self.app.after(1000, remove_item)
         
         self._update_downloads_button()
     
-    def _on_pause_resume_clicked(self, download_id: str):
+    def _on_pause_resume_clicked(self, download_id: Optional[str]):
+        if not download_id:
+            return
         task = self.download_controller.get_download(download_id)
         if not task:
             return
@@ -561,7 +574,9 @@ class MainWindow:
                 self.download_items[download_id]["pause_btn"].configure(text="Resume")
                 self._set_download_item_status(download_id, "Paused")
     
-    def _on_cancel_clicked(self, download_id: str):
+    def _on_cancel_clicked(self, download_id: Optional[str]):
+        if not download_id:
+            return
         if self.download_controller.cancel_download(download_id):
             self._set_download_item_status(download_id, "Canceled")
     
@@ -569,16 +584,22 @@ class MainWindow:
         self.app.after(0, callback)
     
     def _start_download(self, video: VideoInfo, format_type: str, card: VideoCard, is_playlist: bool):
-        download_id = None
+        download_id: Optional[str] = None
         
         def on_progress(p: float):
+            if download_id is None:
+                return
             self._run_ui(lambda: self._update_download_item_progress(download_id, p))
         
         def on_complete(_filename: str):
+            if download_id is None:
+                return
             self._run_ui(lambda: self._set_download_item_status(download_id, "Completed"))
             self._run_ui(lambda: card.download_complete(format_type))
         
         def on_error(error: str):
+            if download_id is None:
+                return
             self._run_ui(lambda: self._set_download_item_status(download_id, "Error", error))
             self._run_ui(lambda: self._on_download_error(error, card))
         
@@ -599,6 +620,8 @@ class MainWindow:
                 error_callback=on_error
             )
         
+        if not download_id:
+            return
         self._add_download_item(download_id, video, format_type, is_playlist)
         self._update_downloads_button()
     

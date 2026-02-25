@@ -298,19 +298,24 @@ class VideoCard(cust.CTkFrame):
         Args:
             format_type: 'mp4' or 'mp3'
         """
-        if format_type == 'mp4':
-            self.mp4_button.configure(
-                state="normal",
-                text="✓ MP4",
-                fg_color=["#00aa00", "#00cc00"]
-            )
-        else:
-            self.mp3_button.configure(
-                state="normal",
-                text="✓ MP3",
-                fg_color=["#00aa00", "#00cc00"]
-            )
-        
+        # Check if widgets still exist before updating (they might be destroyed)
+        try:
+            if format_type == 'mp4':
+                if self.mp4_button and self.mp4_button.winfo_exists():
+                    self.mp4_button.configure(
+                        state="normal",
+                        text="✓ MP4",
+                        fg_color=["#00aa00", "#00cc00"]
+                    )
+            else:
+                if self.mp3_button and self.mp3_button.winfo_exists():
+                    self.mp3_button.configure(
+                        state="normal",
+                        text="✓ MP3",
+                        fg_color=["#00aa00", "#00cc00"]
+                    )
+        except Exception:
+            pass
         self.progress_label.configure(text="Complete!")
     
     def download_error(self, error_msg: str = "Error"):
@@ -320,7 +325,14 @@ class VideoCard(cust.CTkFrame):
         Args:
             error_msg: Error message to display
         """
-        self.mp4_button.configure(state="normal", text="📥 MP4")
-        self.mp3_button.configure(state="normal", text="🎵 MP3")
-        self.progress_label.configure(text=f"❌ {error_msg}", text_color="red")
+        # Check if widgets still exist before updating (they might be destroyed)
+        try:
+            if self.mp4_button and self.mp4_button.winfo_exists():
+                self.mp4_button.configure(state="normal", text="📥 MP4")
+            if self.mp3_button and self.mp3_button.winfo_exists():
+                self.mp3_button.configure(state="normal", text="🎵 MP3")
+            if self.progress_label and self.progress_label.winfo_exists():
+                self.progress_label.configure(text=f"❌ {error_msg}", text_color="red")
+        except Exception:
+            pass
 

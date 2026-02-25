@@ -4,7 +4,7 @@ Download Controller - Manages download operations
 import threading
 import uuid
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Dict, List
+from typing import Callable, Optional, Dict, List, Union
 from models.ytdlp_wrapper import YTDLPWrapper
 from models.video_model import VideoInfo
 
@@ -31,7 +31,7 @@ class DownloadController:
         self.ytdlp = YTDLPWrapper(download_path)
         self.downloads: Dict[str, DownloadTask] = {}
         self.active_downloads: Dict[str, DownloadTask] = {}
-        self.download_history: List[Dict[str, str]] = []
+        self.download_history: List[Dict[str, Union[str, VideoInfo]]] = []
 
     def download_video(
         self,
@@ -81,7 +81,7 @@ class DownloadController:
                     else:
                         task.status = "error"
                         task.error = "Download failed"
-                    if error_callback:
+                    if error_callback and not task.cancel_event.is_set():
                         error_callback(task.error)
             except Exception as e:
                 if task.cancel_event.is_set():
@@ -90,7 +90,7 @@ class DownloadController:
                 else:
                     task.status = "error"
                     task.error = str(e)
-                if error_callback:
+                if error_callback and not task.cancel_event.is_set():
                     error_callback(task.error or "Download failed")
             finally:
                 if task.download_id in self.active_downloads:
@@ -150,7 +150,7 @@ class DownloadController:
                     else:
                         task.status = "error"
                         task.error = "Playlist download failed"
-                    if error_callback:
+                    if error_callback and not task.cancel_event.is_set():
                         error_callback(task.error)
             except Exception as e:
                 if task.cancel_event.is_set():
@@ -159,7 +159,7 @@ class DownloadController:
                 else:
                     task.status = "error"
                     task.error = str(e)
-                if error_callback:
+                if error_callback and not task.cancel_event.is_set():
                     error_callback(task.error or "Playlist download failed")
             finally:
                 if task.download_id in self.active_downloads:
