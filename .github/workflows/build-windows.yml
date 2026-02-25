@@ -32,7 +32,7 @@ jobs:
       
       - name: Upload EXE
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: youtube-downloader-windows-exe
           path: Windows/dist/YTDownloader.exe
