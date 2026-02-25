@@ -6,6 +6,8 @@ import yt_dlp
 from typing import List, Optional, Dict, Any, Callable
 from .video_model import VideoInfo, SearchResult
 import os
+import tempfile
+import shutil
 
 
 class YTDLPWrapper:
@@ -271,18 +273,68 @@ class YTDLPWrapper:
         self._complete_callback = complete_callback
         
         if format_type == 'mp3':
-            ydl_opts: Dict[str, Any] = {
-                'format': 'bestaudio/best',
-                'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-                'progress_hooks': [self._progress_hook],
-                'quiet': True,
-                'no_warnings': True,
-            }
+            # Use temp directory for MP3 conversion to avoid deleting existing MP4 files
+            temp_dir = tempfile.mkdtemp(prefix='ytdl_mp3_')
+            try:
+                ydl_opts: Dict[str, Any] = {
+                    'format': 'bestaudio/best',
+                    'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
+                    'progress_hooks': [self._progress_hook],
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
+                    ydl.download([url])
+                
+                # Find the MP3 file in temp directory and move it to final location
+                mp3_files = [f for f in os.listdir(temp_dir) if f.endswith('.mp3')]
+                if mp3_files:
+                    temp_mp3_path = os.path.join(temp_dir, mp3_files[0])
+                    final_mp3_path = os.path.join(self.download_path, mp3_files[0])
+                    shutil.move(temp_mp3_path, final_mp3_path)
+                    
+                    # Call complete callback with final path
+                    if complete_callback:
+                        complete_callback(final_mp3_path)
+                    
+                    return True
+                else:
+                    print("Error: MP3 file not found after conversion")
+                    return False
+            except Exception as e:
+                error_msg = f"Download error: {str(e)}"
+                
+                # Provide specific error messages
+                error_str = str(e).lower()
+                if 'permission' in error_str or 'access' in error_str:
+                    error_msg = "Permission denied: Check download folder permissions"
+                elif 'space' in error_str or 'disk' in error_str:
+                    error_msg = "Not enough storage space"
+                elif 'private' in error_str:
+                    error_msg = "This video is private"
+                elif 'unavailable' in error_str or 'deleted' in error_str:
+                    error_msg = "This video is no longer available"
+                elif 'age' in error_str:
+                    error_msg = "Video requires age verification"
+                elif 'region' in error_str or 'country' in error_str:
+                    error_msg = "This video is not available in your region"
+                elif 'ffmpeg' in error_str or 'postprocessing' in error_str:
+                    error_msg = "FFmpeg not installed or error during conversion (required for MP3 downloads)"
+                
+                print(error_msg)
+                return False
+            finally:
+                # Clean up temp directory
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    print(f"Warning: Failed to clean up temp directory: {e}")
         else:  # mp4
             ydl_opts: Dict[str, Any] = {
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
@@ -292,33 +344,33 @@ class YTDLPWrapper:
                 'no_warnings': True,
                 'merge_output_format': 'mp4',
             }
-        
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
-                ydl.download([url])
-            return True
-        except Exception as e:
-            error_msg = f"Download error: {str(e)}"
             
-            # Provide specific error messages
-            error_str = str(e).lower()
-            if 'permission' in error_str or 'access' in error_str:
-                error_msg = "Permission denied: Check download folder permissions"
-            elif 'space' in error_str or 'disk' in error_str:
-                error_msg = "Not enough storage space"
-            elif 'private' in error_str:
-                error_msg = "This video is private"
-            elif 'unavailable' in error_str or 'deleted' in error_str:
-                error_msg = "This video is no longer available"
-            elif 'age' in error_str:
-                error_msg = "Video requires age verification"
-            elif 'region' in error_str or 'country' in error_str:
-                error_msg = "This video is not available in your region"
-            elif 'ffmpeg' in error_str:
-                error_msg = "FFmpeg not installed (required for MP3 downloads)"
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
+                    ydl.download([url])
+                return True
+            except Exception as e:
+                error_msg = f"Download error: {str(e)}"
+                
+                # Provide specific error messages
+                error_str = str(e).lower()
+                if 'permission' in error_str or 'access' in error_str:
+                    error_msg = "Permission denied: Check download folder permissions"
+                elif 'space' in error_str or 'disk' in error_str:
+                    error_msg = "Not enough storage space"
+                elif 'private' in error_str:
+                    error_msg = "This video is private"
+                elif 'unavailable' in error_str or 'deleted' in error_str:
+                    error_msg = "This video is no longer available"
+                elif 'age' in error_str:
+                    error_msg = "Video requires age verification"
+                elif 'region' in error_str or 'country' in error_str:
+                    error_msg = "This video is not available in your region"
+                elif 'ffmpeg' in error_str:
+                    error_msg = "FFmpeg not installed (required for MP3 downloads)"
             
-            print(error_msg)
-            return False
+                print(error_msg)
+                return False
     
     def download_playlist(
         self,

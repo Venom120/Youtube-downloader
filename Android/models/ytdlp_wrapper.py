@@ -5,6 +5,8 @@ Uses yt-dlp (if available) with fallback to youtube-dl
 """
 import os
 import sys
+import tempfile
+import shutil
 from typing import List, Optional, Dict, Any, Callable
 from .video_model import VideoInfo, SearchResult
 
@@ -338,10 +340,12 @@ class YTDLPWrapper:
         ffmpeg_available = self._check_ffmpeg_available()
         
         if ffmpeg_available:
+            # Use temp directory for MP3 conversion to avoid deleting existing MP4 files
+            temp_dir = tempfile.mkdtemp(prefix='ytdl_mp3_')
             try:
                 ydl_opts: Dict[str, Any] = {
                     'format': 'bestaudio/best',
-                    'outtmpl': os.path.join(download_path, '%(title)s.%(ext)s'),
+                    'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
@@ -354,10 +358,25 @@ class YTDLPWrapper:
                 
                 with ydl_module.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                     ydl.download([url])
-                print("Successfully downloaded as MP3")
-                return True
+                
+                # Find the MP3 file in temp directory and move it to final location
+                mp3_files = [f for f in os.listdir(temp_dir) if f.endswith('.mp3')]
+                if mp3_files:
+                    temp_mp3_path = os.path.join(temp_dir, mp3_files[0])
+                    final_mp3_path = os.path.join(download_path, mp3_files[0])
+                    shutil.move(temp_mp3_path, final_mp3_path)
+                    print("Successfully downloaded as MP3")
+                    return True
+                else:
+                    print("Error: MP3 file not found after conversion. Trying alternative formats...")
             except Exception as e:
                 print(f"MP3 with FFmpeg failed: {e}. Trying alternative formats...")
+            finally:
+                # Clean up temp directory
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception as e:
+                    print(f"Warning: Failed to clean up temp directory: {e}")
         
         # Strategy 2: Try M4A (AAC - native YouTube format, no conversion needed)
         print("Attempting to download as M4A (AAC audio)...")
