@@ -1,0 +1,52 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r Windows/requirements.txt
+      
+      - name: Build EXE
+        working-directory: ./Windows
+        run: |
+          pyinstaller --noconfirm --clean main.spec
+      
+      - name: Upload EXE
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: youtube-downloader-windows-exe
+          path: Windows/dist/YTDownloader.exe
+          if-no-files-found: ignore
+      
+      - name: Generate Build Report
+        if: always()
+        run: |
+          Add-Content $env:GITHUB_STEP_SUMMARY "## Build Results`n"
+          Add-Content $env:GITHUB_STEP_SUMMARY "### Windows EXE`n"
+          if (Test-Path "Windows/dist/YTDownloader.exe") {
+              $fileSize = (Get-Item "Windows/dist/YTDownloader.exe").Length / 1MB
+              Add-Content $env:GITHUB_STEP_SUMMARY "✅ Build successful`n"
+              Add-Content $env:GITHUB_STEP_SUMMARY "Size: $([Math]::Round($fileSize, 2)) MB`n"
+          } else {
+              Add-Content $env:GITHUB_STEP_SUMMARY "❌ Build failed - EXE not found`n"
+          }

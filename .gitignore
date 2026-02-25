@@ -1,0 +1,10 @@
+*.pyc
+*.pyo
+.vscode
+.venv
+build
+dist
+.env
+.pytest_cache
+__pycache__
+build_output_*

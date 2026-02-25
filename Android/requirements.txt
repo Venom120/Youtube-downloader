@@ -1,6 +1,9 @@
 kivy
 certifi
-pytubefix
+yt-dlp
 pillow
 requests
-ssl
+customtkinter
+pytest
+pytest-timeout
+python-dotenv

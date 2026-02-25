@@ -25,7 +25,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    icon="D:\\vs code\\Youtube downloader\\Windows\\assets\\Youtube_icon.ico",
+    icon="assets/Youtube_icon.ico",
     name='YTDownloader',
     debug=False,
     bootloader_ignore_signals=False,

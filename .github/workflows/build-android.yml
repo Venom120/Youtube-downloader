@@ -1,0 +1,89 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libffi-dev \
+            libssl-dev \
+            libjpeg-dev \
+            zlib1g-dev \
+            libharfbuzz0b \
+            libwebp6
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install buildozer cython
+      
+      - name: Install app dependencies
+        working-directory: ./Android
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Build APK (Debug)
+        working-directory: ./Android
+        run: |
+          buildozer android debug
+        timeout-minutes: 45
+      
+      - name: Build APK (Release)
+        working-directory: ./Android
+        run: |
+          buildozer android release
+        timeout-minutes: 45
+      
+      - name: Upload Debug APK
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: youtube-downloader-debug-apk
+          path: Android/bin/*debug*.apk
+          if-no-files-found: ignore
+      
+      - name: Upload Release APK
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: youtube-downloader-release-apk
+          path: Android/bin/*release*.apk
+          if-no-files-found: ignore
+      
+      - name: Generate Build Report
+        if: always()
+        run: |
+          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### APK Files Generated" >> $GITHUB_STEP_SUMMARY
+          if [ -d "Android/bin" ]; then
+            ls -lh Android/bin/*.apk >> $GITHUB_STEP_SUMMARY 2>&1 || echo "No APK files found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No bin directory found" >> $GITHUB_STEP_SUMMARY
+          fi
