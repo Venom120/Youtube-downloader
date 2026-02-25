@@ -32,7 +32,9 @@ jobs:
           sudo apt-get install -y \
             autoconf \
             automake \
+            autotools-dev \
             libtool \
+            libtool-bin \
             build-essential \
             libffi-dev \
             libssl-dev \
@@ -43,6 +45,7 @@ jobs:
             m4 \
             pkg-config \
             git
+          sudo apt-get install -y --only-upgrade autoconf automake libtool
       
       - name: Install Python dependencies
         run: |
