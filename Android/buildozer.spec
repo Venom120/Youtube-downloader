@@ -33,7 +33,7 @@ version = 2.0.0
 # (list) Application requirements
 # Using youtube-dl for Android (pure Python, no compilation issues)
 # For Windows/Desktop, use yt-dlp from Windows/requirements.txt
-requirements = python3==3.10.11,kivy==2.3.1,youtube-dl==2021.12.17,certifi==2026.2.25,pillow==12.1.1,requests==2.32.5,pytest==9.0.2,pytest-timeout==2.4.0,python-dotenv==1.2.1
+requirements = python3==3.10.11,kivy==2.3.1,youtube-dl==2021.12.17,certifi==2026.2.25,pillow==12.1.1,requests==2.32.5
 
 # (str) Presplash of the application
 presplash.filename = %(source.dir)s/assets/splash_screen.png
