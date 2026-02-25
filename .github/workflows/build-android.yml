@@ -44,22 +44,26 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools docwriter
-          pip install buildozer cython
+          pip install -U buildozer cython
       
       - name: Install app dependencies
         working-directory: ./Android
         run: |
           pip install -r requirements.txt
       
-      - name: Build APK (Debug)
-        working-directory: ./Android
-        run: |
-          buildozer -v android debug
-        timeout-minutes: 45
+      # - name: Build APK (Debug)
+      #   working-directory: ./Android
+      #   run: |
+      #     buildozer android clean
+      #     buildozer android update
+      #     buildozer -v android debug
+      #   timeout-minutes: 45
       
       - name: Build APK (Release)
         working-directory: ./Android
         run: |
+          buildozer android clean
+          buildozer android update
           buildozer -v android release
         timeout-minutes: 45
       
