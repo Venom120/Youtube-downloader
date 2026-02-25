@@ -156,3 +156,4 @@ Get-ChildItem -Path $outputDir -Recurse | ForEach-Object {
 
 Write-Host ""
 Write-Host "Ready for distribution!" -ForegroundColor Green
+deactivate

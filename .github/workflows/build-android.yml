@@ -44,7 +44,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel setuptools docwriter
-          pip install -U buildozer cython
+          pip install -U buildozer cython appdirs colorama
       
       - name: Install app dependencies
         working-directory: ./Android
@@ -55,7 +55,7 @@ jobs:
         run: |
           mkdir -p Android/.buildozer/android/platform
           git clone https://github.com/kivy/python-for-android.git Android/.buildozer/android/platform/python-for-android
-      
+
       # - name: Build APK (Debug)
       #   working-directory: ./Android
       #   run: |
