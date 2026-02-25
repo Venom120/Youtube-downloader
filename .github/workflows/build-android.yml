@@ -51,13 +51,13 @@ jobs:
       - name: Build APK (Debug)
         working-directory: ./Android
         run: |
-          yes | buildozer -v android debug
+          buildozer -v android debug
         timeout-minutes: 45
       
       - name: Build APK (Release)
         working-directory: ./Android
         run: |
-          yes | buildozer -v android release
+          buildozer -v android release
         timeout-minutes: 45
       
       - name: Upload Debug APK
