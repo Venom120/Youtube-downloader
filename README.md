@@ -93,7 +93,7 @@ Youtube-downloader/
 - Python 3.10+ (recommended)
 - yt-dlp 2025.2.10
 - customtkinter 5.2.2
-- pillow 11.2.0
+- pillow 11.2.1
 - requests 2.31.0
 - certifi 2025.1.31
 - pyinstaller 6.19.0 (for building EXE)
@@ -104,7 +104,7 @@ Youtube-downloader/
 - Kivy 2.1.0
 - youtube-dl 2021.12.17 (pure Python, for Android compatibility)
 - certifi 2025.1.31
-- pillow 11.2.0
+- pillow 11.2.1
 - requests 2.31.0
 - Buildozer 1.5.0+ (for building APK)
 - Java 11+ (for Android SDK)
