@@ -31,8 +31,9 @@ source.include_patterns = assets/*,models/*,controllers/*,main.py,main.kv
 version = 2.0.0
 
 # (list) Application requirements
-# NEW: Using yt-dlp instead of pytube
-requirements = python3==3.10.11,kivy==2.1.0,yt-dlp,certifi,pillow,requests
+# Using youtube-dl for Android (pure Python, no compilation issues)
+# For Windows/Desktop, use yt-dlp from Windows/requirements.txt
+requirements = python3==3.9,kivy==2.1.0,youtube-dl,certifi,pillow,requests
 
 # (str) Presplash of the application
 presplash.filename = %(source.dir)s/assets/splash_screen.png
@@ -70,6 +71,19 @@ android.allow_backup = True
 # (bool) Accept Android SDK license automatically
 android.accept_sdk_license = True
 
+# (list) Java classes to add to the bootstrap
+android.add_src =
+
+# (str) Gradle dependencies (for additional build support)
+android.gradle_dependencies =
+
+# (bool) Enable NDK build (required for some native modules)
+android.ndk_version = 25b
+
+# (list) List of Java classes to add as Java.importClass in Python
+android.add_libs_armeabi_v7a =
+android.add_libs_arm64_v8a =
+
 # (str) The format used to package the app for release mode (aab or apk or aar).
 # android.release_artifact = aab
 
@@ -83,3 +97,6 @@ log_level = 2
 
 # (int) Display warning if buildozer is run as root (0 = False, 1 = True)
 warn_on_root = 1
+
+# (str) Path to build artifact storage
+log_dir = .buildozer/logs

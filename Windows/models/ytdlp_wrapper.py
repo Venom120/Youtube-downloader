@@ -1,65 +1,77 @@
 """
-yt-dlp wrapper - handles all yt-dlp operations
+yt-dlp wrapper - handles all yt-dlp operations for Windows/Desktop
+Uses yt-dlp with advanced features and better maintained
 """
 import yt_dlp
 from typing import List, Optional, Dict, Any, Callable
 from .video_model import VideoInfo, SearchResult
 import os
-import threading
 
 
 class YTDLPWrapper:
-    """Wrapper class for yt-dlp operations"""
+    """Wrapper class for yt-dlp operations (Windows/Desktop)"""
     
     def __init__(self, download_path: Optional[str] = None):
-        """Initialize wrapper with download path"""
+        """
+        Initialize wrapper with download path
+        
+        Args:
+            download_path: Directory to save downloads (default: ~/Downloads/YTDownloader)
+        """
         if download_path is None:
             self.download_path = os.path.expanduser("~/Downloads/YTDownloader")
         else:
             self.download_path = download_path
         
+        # Ensure directory exists
+        os.makedirs(self.download_path, exist_ok=True)
+        
         self.current_progress = 0
-        self._progress_callback = None
-        self._complete_callback = None
+        self._progress_callback: Optional[Callable[[float], None]] = None
+        self._complete_callback: Optional[Callable[[str], None]] = None
+        self.lib_name = 'yt-dlp'
     
     @staticmethod
     def _extract_thumbnail_url(entry: Any) -> str:
         """Extract thumbnail URL from entry, handling both thumbnail and thumbnails fields"""
-        # Try direct thumbnail field first
-        if entry.get('thumbnail'):
-            return str(entry.get('thumbnail', ''))
-        
-        # Try thumbnails list (plural)
-        if entry.get('thumbnails') and len(entry.get('thumbnails', [])) > 0:
-            thumbnails = entry.get('thumbnails', [])
-            # Get the last (highest quality) thumbnail
-            return str(thumbnails[-1].get('url', ''))
-        
-        return ''
-    
-    def _progress_hook(self, d: Dict[str, Any]):
-        """Internal progress hook for yt-dlp"""
-        if d['status'] == 'downloading':
-            # Calculate percentage
-            if 'total_bytes' in d:
-                total = d['total_bytes']
-            elif 'total_bytes_estimate' in d:
-                total = d['total_bytes_estimate']
-            else:
-                total = None
+        try:
+            # Try direct thumbnail field first
+            if entry.get('thumbnail'):
+                return str(entry.get('thumbnail', ''))
             
-            if total and 'downloaded_bytes' in d:
-                downloaded = d['downloaded_bytes']
-                percentage = (downloaded / total) * 100
-                self.current_progress = percentage
+            # Try thumbnails list (plural)
+            if entry.get('thumbnails') and len(entry.get('thumbnails', [])) > 0:
+                thumbnails = entry.get('thumbnails', [])
+                # Get the last (highest quality) thumbnail
+                return str(thumbnails[-1].get('url', ''))
+            
+            return ''
+        except Exception as e:
+            print(f"Warning: Error extracting thumbnail: {e}")
+            return ''
+    
+    def _progress_hook(self, d: Dict[str, Any]) -> None:
+        """Internal progress hook for yt-dlp"""
+        try:
+            if d.get('status') == 'downloading':
+                # Calculate percentage
+                total = d.get('total_bytes') or d.get('total_bytes_estimate')
                 
-                if self._progress_callback:
-                    self._progress_callback(percentage)
-        
-        elif d['status'] == 'finished':
-            self.current_progress = 100
-            if self._complete_callback:
-                self._complete_callback(d.get('filename', ''))
+                if total and 'downloaded_bytes' in d:
+                    downloaded = d['downloaded_bytes']
+                    percentage = min(100, (downloaded / total) * 100)
+                    self.current_progress = percentage
+                    
+                    if self._progress_callback:
+                        self._progress_callback(percentage)
+            
+            elif d.get('status') == 'finished':
+                self.current_progress = 100
+                if self._complete_callback:
+                    filename = d.get('filename', 'Unknown')
+                    self._complete_callback(filename)
+        except Exception as e:
+            print(f"Warning: Progress hook error: {e}")
     
     def get_video_info(self, url: str) -> Optional[VideoInfo]:
         """
@@ -71,7 +83,7 @@ class YTDLPWrapper:
         Returns:
             VideoInfo object or None if failed
         """
-        ydl_opts: Any = {
+        ydl_opts: Dict[str, Any] = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': 'in_playlist',  # Don't download, just extract info
@@ -117,7 +129,14 @@ class YTDLPWrapper:
                         is_playlist=False
                     )
         except Exception as e:
-            print(f"Error getting video info: {e}")
+            error_msg = f"Error getting video info: {str(e)}"
+            if 'private' in str(e).lower():
+                error_msg = "This video is private or restricted"
+            elif 'unavailable' in str(e).lower():
+                error_msg = "This video is unavailable"
+            elif 'age' in str(e).lower():
+                error_msg = "This video requires age verification"
+            print(error_msg)
             return None
     
     def get_playlist_videos(self, url: str) -> List[VideoInfo]:
@@ -130,7 +149,7 @@ class YTDLPWrapper:
         Returns:
             List of VideoInfo objects
         """
-        ydl_opts: Any = {
+        ydl_opts: Dict[str, Any] = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,  # Extract full info for each video
@@ -163,7 +182,10 @@ class YTDLPWrapper:
                 
                 return videos
         except Exception as e:
-            print(f"Error getting playlist videos: {e}")
+            error_msg = f"Error getting playlist videos: {str(e)}"
+            if 'private' in str(e).lower():
+                error_msg = "This playlist is private"
+            print(error_msg)
             return []
     
     def search_videos(self, query: str, max_results: int = 20) -> SearchResult:
@@ -177,7 +199,7 @@ class YTDLPWrapper:
         Returns:
             SearchResult object
         """
-        ydl_opts: Any = {
+        ydl_opts: Dict[str, Any] = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': True,
@@ -220,7 +242,10 @@ class YTDLPWrapper:
                     has_more=len(videos) >= max_results
                 )
         except Exception as e:
-            print(f"Error searching videos: {e}")
+            error_msg = f"Error searching videos: {str(e)}"
+            if 'no internet' in str(e).lower() or 'parse error' in str(e).lower():
+                error_msg = "Network error - check your internet connection"
+            print(error_msg)
             return SearchResult(videos=[], query=query, page=1, has_more=False)
     
     def download_video(
@@ -246,7 +271,7 @@ class YTDLPWrapper:
         self._complete_callback = complete_callback
         
         if format_type == 'mp3':
-            ydl_opts: Any = {
+            ydl_opts: Dict[str, Any] = {
                 'format': 'bestaudio/best',
                 'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
                 'postprocessors': [{
@@ -259,7 +284,7 @@ class YTDLPWrapper:
                 'no_warnings': True,
             }
         else:  # mp4
-            ydl_opts: Any = {
+            ydl_opts: Dict[str, Any] = {
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
                 'outtmpl': os.path.join(self.download_path, '%(title)s.%(ext)s'),
                 'progress_hooks': [self._progress_hook],
@@ -273,7 +298,26 @@ class YTDLPWrapper:
                 ydl.download([url])
             return True
         except Exception as e:
-            print(f"Error downloading video: {e}")
+            error_msg = f"Download error: {str(e)}"
+            
+            # Provide specific error messages
+            error_str = str(e).lower()
+            if 'permission' in error_str or 'access' in error_str:
+                error_msg = "Permission denied: Check download folder permissions"
+            elif 'space' in error_str or 'disk' in error_str:
+                error_msg = "Not enough storage space"
+            elif 'private' in error_str:
+                error_msg = "This video is private"
+            elif 'unavailable' in error_str or 'deleted' in error_str:
+                error_msg = "This video is no longer available"
+            elif 'age' in error_str:
+                error_msg = "Video requires age verification"
+            elif 'region' in error_str or 'country' in error_str:
+                error_msg = "This video is not available in your region"
+            elif 'ffmpeg' in error_str:
+                error_msg = "FFmpeg not installed (required for MP3 downloads)"
+            
+            print(error_msg)
             return False
     
     def download_playlist(

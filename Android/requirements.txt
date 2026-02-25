@@ -1,10 +1,13 @@
-kivy
-certifi
-yt-dlp
-pillow
-requests
-customtkinter
-pytest
-pytest-timeout
-python-dotenv
-buildozer
+# Core Dependencies
+# Note: Using youtube-dl instead of yt-dlp for Android compatibility
+# yt-dlp requires native compilation which doesn't work well on Android
+kivy==2.1.0
+youtube-dl==2021.12.17
+certifi==2025.1.31
+pillow==11.2.0
+requests==2.31.0
+
+# Testing & Development (optional)
+pytest==7.4.4
+pytest-timeout==2.1.0
+python-dotenv==1.0.0
