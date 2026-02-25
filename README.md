@@ -91,21 +91,21 @@ Youtube-downloader/
 
 ### Windows
 - Python 3.10+ (recommended)
-- yt-dlp 2025.2.10
+- yt-dlp 2026.2.21
 - customtkinter 5.2.2
-- pillow 11.2.1
-- requests 2.31.0
-- certifi 2025.1.31
+- pillow 12.1.1
+- requests 2.32.5
+- certifi 2026.2.25
 - pyinstaller 6.19.0 (for building EXE)
 - FFmpeg (for MP3 downloads)
 
 ### Android
 - Python 3.9+
-- Kivy 2.1.0
+- Kivy 2.3.1
 - youtube-dl 2021.12.17 (pure Python, for Android compatibility)
-- certifi 2025.1.31
-- pillow 11.2.1
-- requests 2.31.0
+- certifi 2026.2.25
+- pillow 12.1.1
+- requests 2.32.5
 - Buildozer 1.5.0+ (for building APK)
 - Java 11+ (for Android SDK)
 
