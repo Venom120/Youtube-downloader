@@ -30,38 +30,46 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            ant \
             autoconf \
             automake \
-            autotools-dev \
-            libtool \
-            libtool-bin \
-            build-essential \
+            ccache \
+            cmake \
+            g++ \
+            gcc \
+            git \
+            lbzip2 \
             libffi-dev \
+            libltdl-dev \
+            libtool \
             libssl-dev \
-            libjpeg-dev \
-            zlib1g-dev \
-            libharfbuzz0b \
-            libwebp7 \
-            m4 \
+            make \
+            openjdk-17-jdk \
+            patch \
             pkg-config \
-            git
-          sudo apt-get install -y --only-upgrade autoconf automake libtool
-      
+            python3 \
+            python3-dev \
+            python3-pip \
+            python3-venv \
+            unzip \
+            wget \
+            zip \
+            libgstreamer1.0 \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good
+          sudo apt-get install libffi-dev openssl build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev libffi6
+
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip wheel setuptools docwriter
-          pip install -U buildozer cython appdirs colorama toml jinja2 pyyaml six build
+          python -m pip install --upgrade pip wheel setuptools
+          pip install "cython<3.0" 
+          pip install buildozer appdirs colorama toml jinja2 pyyaml six build
       
       - name: Install app dependencies
         working-directory: ./Android
         run: |
           pip install -r requirements.txt
       
-      - name: Clone python-for-android
-        run: |
-          mkdir -p Android/.buildozer/android/platform
-          git clone https://github.com/kivy/python-for-android.git Android/.buildozer/android/platform/python-for-android
-
       # - name: Build APK (Debug)
       #   working-directory: ./Android
       #   run: |

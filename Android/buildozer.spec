@@ -30,10 +30,12 @@ source.include_patterns = assets/*,models/*,controllers/*,main.py,main.kv
 # (str) Application versioning (method 1)
 version = 2.0.0
 
+# (str) python-for-android branch to use
+p4a.branch = master
+
 # (list) Application requirements
-# Using youtube-dl for Android (pure Python, no compilation issues)
-# For Windows/Desktop, use yt-dlp from Windows/requirements.txt
-requirements = python3==3.10.11,kivy==2.3.1,youtube-dl==2021.12.17,certifi==2026.2.25,pillow==12.1.1,requests==2.32.5
+# Keep it simple so Buildozer can resolve native dependencies correctly
+requirements = python3,kivy==2.3.1,youtube-dl==2021.12.17,certifi,pillow,requests
 
 # (str) Presplash of the application
 presplash.filename = %(source.dir)s/assets/splash_screen.png
