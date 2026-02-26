@@ -24,40 +24,32 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '17' # API 31+ works better with Java 17
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            ant \
             autoconf \
             automake \
+            build-essential \
             ccache \
             cmake \
-            g++ \
-            gcc \
+            gettext \
             git \
-            lbzip2 \
             libffi-dev \
             libltdl-dev \
             libtool \
             libssl-dev \
-            make \
-            openjdk-17-jdk \
+            m4 \
             patch \
             pkg-config \
-            python3 \
-            python3-dev \
-            python3-pip \
-            python3-venv \
-            unzip \
-            wget \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
             zip \
-            libgstreamer1.0 \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good
-          sudo apt-get install libffi-dev openssl build-essential libsqlite3-dev sqlite3 bzip2 libbz2-dev zlib1g-dev libssl-dev openssl libgdbm-dev libgdbm-compat-dev liblzma-dev libreadline-dev libncursesw5-dev libffi-dev uuid-dev libffi6
+            unzip
 
       - name: Install Python dependencies
         run: |
@@ -65,42 +57,20 @@ jobs:
           pip install "cython<3.0" 
           pip install buildozer appdirs colorama toml jinja2 pyyaml six build
       
-      - name: Install app dependencies
-        working-directory: ./Android
-        run: |
-          pip install -r requirements.txt
-      
-      # - name: Build APK (Debug)
-      #   working-directory: ./Android
-      #   run: |
-      #     buildozer android clean
-      #     buildozer android update
-      #     buildozer -v android debug
-      #   timeout-minutes: 45
-      
       - name: Build APK (Release)
         working-directory: ./Android
         run: |
-          buildozer android clean
-          buildozer android update
+          # Use 'master' branch of p4a to ensure compatibility with Ubuntu 24.04 autotools
+          export P4A_RELEASE_BRANCH=master
           buildozer -v android release
-        timeout-minutes: 45
-      
-      - name: Upload Debug APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: youtube-downloader-debug-apk
-          path: Android/bin/*debug*.apk
-          if-no-files-found: ignore
+        timeout-minutes: 60
       
       - name: Upload Release APK
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: youtube-downloader-release-apk
-          path: Android/bin/*release*.apk
-          if-no-files-found: ignore
+          path: Android/bin/*.apk
       
       - name: Generate Build Report
         if: always()
