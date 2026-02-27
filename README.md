@@ -1,6 +1,6 @@
 # YouTube Downloader - Enhanced Version
 
-A modern YouTube video and audio downloader for Windows and Android with search capabilities and a YouTube-like interface.
+A modern YouTube video and audio downloader for Windows and React Native (Expo) with search capabilities and a YouTube-like interface.
 
 ## ✨ New Features
 
@@ -9,7 +9,7 @@ A modern YouTube video and audio downloader for Windows and Android with search 
 - **📑 Playlist Support**: Download entire playlists or individual videos from playlists
 - **⚡ yt-dlp Integration**: More reliable and feature-rich than pytube
 - **🏗️ MVC Architecture**: Clean, organized code structure for easy maintenance
-- **📱 Cross-Platform**: Works on both Windows and Android
+- **📱 Cross-Platform**: Windows desktop + React Native (Android/iOS)
 
 ## 📁 New Project Structure
 
@@ -32,15 +32,16 @@ Youtube-downloader/
 │   ├── main.py              # Old version (for reference)
 │   └── requirements.txt # Updated dependencies
 │
-└── Android/
-    ├── models/              # Shared models with Windows
-    ├── controllers/         # Android controllers
-    ├── views/               # Kivy-specific views
-    ├── assets/              # Images and icons
-    ├── main.py          # Main Kivy app (NEW VERSION)
-    ├── main.kv          # Kivy UI layout
-    ├── main.py              # Old version (for reference)
-    └── requirements.txt # Updated dependencies
+└── Android/React-Native/
+     ├── src/
+     │   ├── models/          # VideoInfo + SearchResult
+     │   ├── controllers/     # Search + download controllers
+     │   ├── services/        # youtubei.js wrapper
+     │   ├── views/           # React Native UI components
+     │   └── utils/           # Formatting helpers
+     ├── App.tsx          # Main Expo app
+     ├── app.json
+     └── package.json
 ```
 
 ## 🚀 Quick Start
@@ -63,29 +64,26 @@ Youtube-downloader/
    python -m PyInstaller main.spec
    ```
 
-### Android
+### React Native (Expo)
 
 1. **Install Dependencies**:
-   ```bash
-   cd Android
-   pip install -r requirements.txt
-   ```
+     ```bash
+     cd Android/React-Native
+     yarn install
+     ```
 
-2. **Install Build Dependencies** (Ubuntu/Debian):
-   ```bash
-   sudo apt-get install build-essential libffi-dev libssl-dev libjpeg-dev zlib1g-dev openjdk-11-jdk
-   ```
+2. **Run the Expo App**:
+     ```bash
+     npx expo start
+     ```
 
-3. **Run on Desktop (for testing)**:
-   ```bash
-   python main.py
-   ```
+3. **Download Locations**:
+     - Final files: `/storage/emulated/0/Download/YTDownloader/`
+     - Temporary files: app cache directory
 
-4. **Build APK with Buildozer**:
-   ```bash
-   buildozer android debug    # Debug APK
-   buildozer android release  # Release APK (requires keystore)
-   ```
+4. **Android Storage Note (Android 11+)**:
+     - Writing to `/storage/emulated/0/Download/` can be restricted by scoped storage.
+     - If saving fails, grant storage permission or use a release build with the required permissions.
 
 ## 📋 Requirements
 
@@ -99,15 +97,12 @@ Youtube-downloader/
 - pyinstaller 6.19.0 (for building EXE)
 - FFmpeg (for MP3 downloads)
 
-### Android
-- Python 3.9+
-- Kivy 2.3.1
-- youtube-dl 2021.12.17 (pure Python, for Android compatibility)
-- certifi 2026.2.25
-- pillow 12.1.1
-- requests 2.32.5
-- Buildozer 1.5.0+ (for building APK)
-- Java 11+ (for Android SDK)
+### React Native (Expo)
+- Node.js 20+
+- Expo SDK 54
+- youtubei.js 16.x
+- expo-file-system 19.x
+- expo-linking 8.x
 
 ## 🎯 Features Breakdown
 
@@ -135,7 +130,7 @@ Youtube-downloader/
 
 ### Download Options
 - **MP4**: Download video in highest quality
-- **MP3**: Extract audio only
+- **MP3**: Download audio-only stream (may be m4a/webm unless an actual mp3 stream exists)
 - Progress tracking with percentage
 - Download status indicators
 - Error handling with user feedback
@@ -144,61 +139,32 @@ Youtube-downloader/
 
 These diagrams show the internal download strategies for each platform and format. Understanding these flows helps explain why certain downloads succeed or fail, and what formats you'll get.
 
-### Android MP3 Download Strategy
+### React Native MP3 Download Strategy
 
 ```
-User clicks "Download as MP3" on Android
+User clicks "Download as MP3" on React Native
                     ↓
-   _download_audio() checks if FFmpeg available
+     youtubei.js selects best audio stream
                     ↓
-         ┌─────────────────────────┐
-         │                         │
-    FFmpeg found?           FFmpeg not found?
-         │                         │
-         ↓                         ↓
-    Try MP3                    Try M4A (AAC)
-    (192kbps)                  (No conversion)
-         │                         │
-    Success? → Return        Success? → Return
-         │                         │
-         ↓                         ↓
-    Try M4A                     Try WAV
-         │                         │
-    Success? → Return      Success? → Return
-         │                         │
-         ↓                         ↓
-    Try WAV                     Best Audio
-         │                      (Generic)
-    Success? → Return              │
-         │                 Success? → Return
-         ↓
-    Best Audio
-    (Generic)
-         ↓
-    ✅ Success (or error)
+           Download to cache folder
+                    ↓
+      Move to Download/YTDownloader
+                    ↓
+✅ Saved as M4A/WebM (or MP3 if stream is mp3)
 ```
 
-### Android MP4 Download Strategy
+### React Native MP4 Download Strategy
 
 ```
-User clicks "Download as MP4" on Android
+User clicks "Download as MP4" on React Native
                     ↓
-    Download video with audio
+     youtubei.js selects MP4 stream
                     ↓
-    Format: bestvideo[ext=mp4]+bestaudio[ext=m4a]
+      Download to cache folder
                     ↓
-         ┌──────────────────┐
-         │                  │
-    Format available?   Not available?
-         │                  │
-         ↓                  ↓
-    Download MP4      Try best[ext=mp4]
-         │                  │
-         ↓                  ↓
-    ✅ Success         Try best format
-                            │
-                            ↓
-                       ✅ Success (or error)
+      Move to Download/YTDownloader
+                    ↓
+          ✅ Success (or error)
 ```
 
 ### Windows MP3 Download Strategy
@@ -249,26 +215,23 @@ User clicks "Download as MP4" on Windows
 ```
 
 **Key Differences**:
-- **Android MP3**: Multiple fallback formats (M4A, WAV, generic audio)
+- **React Native MP3**: Saves best available audio (M4A/WebM) without FFmpeg
 - **Windows MP3**: Requires FFmpeg, fails if not installed
-- **Android MP4**: No merge required (youtube-dl handles it)
+- **React Native MP4**: Saves best MP4 stream available
 - **Windows MP4**: Uses yt-dlp's advanced merging capabilities
 
 **What You'll Actually Get**:
 
 | Platform | Format Requested | FFmpeg Installed | What You Get |
 |----------|------------------|------------------|--------------|
-| Android  | MP3              | ✅ Yes           | `.mp3` file (192kbps) |
-| Android  | MP3              | ❌ No            | `.m4a` file (AAC audio) |
-| Android  | MP4              | Either           | `.mp4` file (best quality) |
+| React Native | MP3          | N/A              | `.m4a` or `.webm` audio |
+| React Native | MP4          | N/A              | `.mp4` file (best quality) |
 | Windows  | MP3              | ✅ Yes           | `.mp3` file (192kbps) |
 | Windows  | MP3              | ❌ No            | ❌ Error message |
 | Windows  | MP4              | Either           | `.mp4` file (best quality) |
 
 **Tips**:
-- On Android without FFmpeg: You'll get M4A files (AAC audio) - these work in all modern music players
-- M4A files can be renamed to `.mp3` for compatibility (though they're not true MP3s)
-- For true MP3 format on Android: Include FFmpeg in your buildozer build or install it via Termux
+- React Native MP3 downloads are M4A/WebM; convert externally if you need true MP3
 
 ## 🏗️ Architecture
 
@@ -276,10 +239,8 @@ User clicks "Download as MP4" on Windows
 
 **Models** (`models/`):
 - `video_model.py`: Data structures for videos and search results
-- `ytdlp_wrapper.py`: Unified wrapper for both yt-dlp (Windows) and youtube-dl (Android)
-  - Abstracts platform-specific differences
-  - Comprehensive error handling with user-friendly messages
-  - Automatic library selection based on what's installed
+- `ytdlp_wrapper.py`: Unified wrapper for yt-dlp (Windows)
+- `Android/React-Native/src/services/ytdlpWrapper.ts`: youtubei.js wrapper for Expo
 
 **Controllers** (`controllers/`):
 - `search_controller.py`: Handles search and video info retrieval
@@ -287,15 +248,15 @@ User clicks "Download as MP4" on Windows
 
 **Views** (`views/`):
 - Windows: `video_card.py` - CustomTkinter video card widget
-- Android: `main.kv` - Kivy layout definitions
+- React Native: `VideoCard.tsx` - Expo UI component
 
 ### Key Design Decisions
 
-1. **Dual Download Libraries**: yt-dlp for Windows (advanced features), youtube-dl for Android (pure Python compatibility)
+1. **Dual Download Libraries**: yt-dlp for Windows, youtubei.js for React Native
 2. **MVC architecture**: Separates concerns, easier to maintain and test
 3. **Card-based UI**: Modern, familiar YouTube-like interface
 4. **Async operations**: Threading for downloads and searches to avoid blocking UI
-5. **Cross-platform models**: Same business logic for Windows and Android
+5. **Cross-platform models**: Same business logic for Windows and React Native
 6. **Library Abstraction**: Wrapper class handles library differences transparently
 
 ## 🔄 Migrating from Old Version
@@ -312,34 +273,24 @@ The new version (`main.py`) can coexist with the old version. To switch:
    python main.py  # instead of main.py
    ```
 
-3. **Update buildozer.spec** (Android):
-   - Change `requirements` to include `yt-dlp` instead of `pytube`
-   - Update source files to use `main.py` and `main.kv`
 
 ## 🐛 Known Issues & Limitations
 
 1. **Platform-Specific Dependencies**: 
    - **Windows**: Uses yt-dlp (more features, latest updates)
-   - **Android**: Uses youtube-dl (pure Python, avoids native compilation issues)
+   - **React Native**: Uses youtubei.js (pure JS, Expo compatible)
    - The models handle both libraries transparently
 
-2. **Audio Download (MP3) on Android**: 
-   - Automatically tries multiple formats in order of preference:
-     1. **MP3** (with FFmpeg if available) - Best quality
-     2. **M4A** (AAC - native YouTube audio format) - No conversion needed ✅
-     3. **WAV** (if available) - Uncompressed
-     4. **Best Audio Stream** (fallback) - Generic format
-   - At least one format will always work without FFmpeg
-   - Files can be renamed after download if desired
+2. **Audio Download (MP3) on React Native**: 
+   - Uses the best available audio stream without FFmpeg
+   - Saves M4A/WebM audio depending on the stream
+   - Convert externally if you need true MP3 files
 
 3. **Windows MP3 Downloads**: 
    - Requires FFmpeg to be installed: https://ffmpeg.org/
    - Download and add to PATH for best results
 
-4. **Android Permissions**: Requires storage and internet permissions
-   - Automatically requested on app start
-
-5. **Large Playlists**: May take time to load all video information
+4. **Large Playlists**: May take time to load all video information
    - Progress indication provided
 
 ## 🔧 Build Automation & CI/CD
@@ -353,11 +304,10 @@ The project includes automated build pipelines:
   - Builds standalone executable with PyInstaller
   - Artifacts uploaded for release
 
-- **[.github/workflows/build-android.yml](.github/workflows/build-android.yml)**: Builds Android APK on push/PR
-  - Runs on Ubuntu (latest)
-  - Builds both debug and release APKs with Buildozer
-  - Automatically accepts SDK licenses
-  - Artifacts uploaded for testing
+- **[.github/workflows/build-android.yml](.github/workflows/build-android.yml)**: Expo checks for the React Native app
+     - Runs on Ubuntu (latest)
+     - Installs Yarn dependencies
+     - Runs Expo diagnostics and TypeScript checks
 
 ### Local Build Scripts
 
@@ -369,7 +319,6 @@ Run the build script to create distribution packages:
 
 # Or build individually:
 .\Windows\build_windows.ps1
-.\Android\build_android.ps1  # Requires Linux/WSL
 ```
 
 ## 🤝 Contributing
@@ -387,7 +336,7 @@ Contributions are welcome! The MVC structure makes it easy to add new features:
 
 - **yt-dlp**: Excellent YouTube download library
 - **CustomTkinter**: Modern UI for Windows
-- **Kivy**: Cross-platform Python framework
+- **youtubei.js**: YouTube data API wrapper for React Native
 
 ---
 
@@ -395,7 +344,7 @@ Contributions are welcome! The MVC structure makes it easy to add new features:
 
 ### YTDLPWrapper
 
-Unified wrapper for YouTube download operations. Automatically uses yt-dlp for Windows and youtube-dl for Android.
+Unified wrapper for YouTube download operations. Uses yt-dlp for Windows and youtubei.js for React Native.
 
 **Methods**:
 - `get_video_info(url)`: Get video/playlist information
@@ -405,14 +354,10 @@ Unified wrapper for YouTube download operations. Automatically uses yt-dlp for W
 - `download_playlist(url, format_type, callbacks)`: Download entire playlist
 
 **Features**:
-- Automatic library selection (yt-dlp preferred, youtube-dl fallback)
-- **Smart Audio Download** (Android):
-  - Tries MP3 with FFmpeg (best quality)
-  - Falls back to M4A/AAC (native YouTube format, no conversion)
-  - Tries WAV (if available)
-  - Downloads best audio stream (generic fallback)
-  - At least one format always succeeds
-  - User-friendly logging of which format was used
+- Automatic library selection per platform
+- **Smart Audio Download** (React Native):
+     - Saves best available audio stream (M4A/WebM)
+     - No FFmpeg required in Expo
 - Comprehensive error handling with user-friendly messages:
   - Private/restricted videos
   - Age-restricted content
@@ -424,14 +369,11 @@ Unified wrapper for YouTube download operations. Automatically uses yt-dlp for W
 - Thumbnail extraction with fallback handling
 - Support for both MP4 and MP3/audio downloads
 
-**Audio Format Selection** (Android MP3 downloads):
-When you request MP3 on Android, the library automatically:
-1. Checks for FFmpeg availability
-2. If FFmpeg found → converts to high-quality 192kbps MP3
-3. If not → downloads as M4A (AAC, native YouTube format)
-4. If M4A fails → tries WAV (uncompressed, larger file size)
-5. If all fail → downloads best available audio stream
-6. Files can be renamed afterwards using a file manager
+**Audio Format Selection** (React Native audio downloads):
+When you request MP3 in the Expo app, the wrapper:
+1. Picks the best available audio stream
+2. Saves the stream as M4A/WebM (no FFmpeg)
+3. You can convert the file externally if you need true MP3
 
 **Error Handling Examples**:
 ```python

@@ -1,13 +1,11 @@
 """
 Test Suite for YouTube Downloader - Comprehensive tests for all components
-Covers: UI (Windows/Android), Controllers, Models, and Platform-specific features
+Covers: UI (Windows), Controllers, Models, and Platform-specific features
 """
 import os
 import sys
-import types
 import shutil
 import importlib
-import importlib.util
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
@@ -15,7 +13,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_DIR = ROOT / "Windows"
-ANDROID_DIR = ROOT / "Android"
 
 
 def _purge_modules(prefixes):
@@ -36,15 +33,6 @@ def _import_windows_module(module_name):
     finally:
         sys.path.pop(0)
 
-
-def _import_android_module(module_name):
-    """Import an Android module safely"""
-    _purge_modules(["models", "controllers", "views"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        return importlib.import_module(module_name)
-    finally:
-        sys.path.pop(0)
 
 
 # ============================================================================
@@ -291,21 +279,6 @@ def test_windows_ytdlp_wrapper_uses_ytdlp(tmp_path):
     assert os.path.exists(wrapper.download_path)
 
 
-def test_android_ytdlp_wrapper_uses_youtube_dl():
-    """Test Android wrapper uses youtube-dl or yt-dlp"""
-    _purge_modules(["models", "controllers"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        from models.ytdlp_wrapper import YTDLPWrapper
-        wrapper = YTDLPWrapper(".")
-        
-        assert hasattr(wrapper, 'lib_name')
-        assert wrapper.lib_name in ['youtube-dl', 'yt-dlp']
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers"])
-
-
 def test_ytdlp_wrapper_methods(tmp_path):
     """Test YTDLPWrapper has all required methods"""
     ytdlp_wrapper = _import_windows_module("models.ytdlp_wrapper")
@@ -316,22 +289,6 @@ def test_ytdlp_wrapper_methods(tmp_path):
     assert callable(wrapper.get_video_info)
     assert callable(wrapper.search_videos)
     assert callable(wrapper.get_playlist_videos)
-
-
-def test_android_wrapper_has_audio_fallback():
-    """Test Android wrapper has multi-strategy audio download"""
-    _purge_modules(["models", "controllers"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        from models.ytdlp_wrapper import YTDLPWrapper
-        wrapper = YTDLPWrapper(".")
-        
-        # Android should have special audio download method
-        assert callable(wrapper._download_audio)
-        assert callable(wrapper._check_ffmpeg_available)
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers"])
 
 
 def test_ytdlp_wrapper_error_handling(tmp_path):
@@ -477,70 +434,6 @@ def test_windows_video_card_creation(tk_cleanup):
 
 
 # ============================================================================
-# ANDROID UI TESTS (GUI)
-# ============================================================================
-
-
-@pytest.mark.gui
-def test_android_app_initialization():
-    """Test Android app initializes correctly"""
-    pytest.importorskip("kivy")
-    
-    _purge_modules(["models", "controllers", "main"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        import main as android_main
-        
-        app = android_main.YoutubeDownloaderApp()
-        
-        # Check controllers exist
-        assert hasattr(app, 'search_controller')
-        assert hasattr(app, 'download_controller')
-        assert hasattr(app, 'download_path')
-        
-        # Check download path is set
-        assert app.download_path is not None
-        assert len(app.download_path) > 0
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers", "main"])
-
-
-@pytest.mark.gui
-def test_android_video_card_creation():
-    """Test Android VideoCard widget creation"""
-    pytest.importorskip("kivy")
-    
-    _purge_modules(["models", "controllers", "main"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        from models.video_model import VideoInfo
-        import main as android_main
-        
-        app = android_main.YoutubeDownloaderApp()
-        
-        video = VideoInfo(
-            video_id="test123",
-            title="Test Video Title",
-            thumbnail_url="https://i.ytimg.com/vi/test/default.jpg",
-            duration=180,
-            channel="Test Channel",
-            view_count=100000,
-            url="https://youtube.com/watch?v=test123"
-        )
-        
-        card = android_main.VideoCard(video, app)
-        
-        # Test card attributes
-        assert card.video == video
-        assert card.app == app
-        assert card.video_title == video.title
-        assert "Test Channel" in card.video_info
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers", "main"])
-
-
 # ============================================================================
 # PLATFORM-SPECIFIC TESTS
 # ============================================================================
@@ -552,37 +445,6 @@ def test_platform_library_selection(tmp_path):
     windows_wrapper = _import_windows_module("models.ytdlp_wrapper")
     win_wrap = windows_wrapper.YTDLPWrapper(str(tmp_path))
     assert win_wrap.lib_name == 'yt-dlp'
-    
-    # Android uses youtube-dl or yt-dlp as fallback
-    _purge_modules(["models", "controllers"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        from models.ytdlp_wrapper import YTDLPWrapper
-        android_wrap = YTDLPWrapper(str(tmp_path))
-        assert android_wrap.lib_name in ['youtube-dl', 'yt-dlp']
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers"])
-
-
-@pytest.mark.gui
-def test_android_download_path_structure():
-    """Test Android sets up download path correctly"""
-    pytest.importorskip("kivy")
-    
-    _purge_modules(["models", "controllers", "main"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        import main as android_main
-        
-        app = android_main.YoutubeDownloaderApp()
-        
-        # Download path should contain 'YTDownloader'
-        assert 'YTDownloader' in app.download_path
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers", "main"])
-
 
 def test_windows_download_path_structure(tmp_path):
     """Test Windows controller uses correct download path"""
@@ -821,30 +683,6 @@ def test_live_get_video_info():
     assert hasattr(video, 'duration')
     assert hasattr(video, 'channel')
     assert video.url == video_url
-
-
-@pytest.mark.live
-def test_live_android_audio_download(tmp_path):
-    """Test Android can download audio using multi-strategy approach"""
-    video_url = os.getenv("TEST_VIDEO_URL") or "https://youtu.be/jNQXAC9IVRw"
-    if os.getenv("RUN_LIVE_DOWNLOADS") != "1":
-        pytest.skip("Set RUN_LIVE_DOWNLOADS=1 to run live downloads")
-    
-    _purge_modules(["models", "controllers"])
-    sys.path.insert(0, str(ANDROID_DIR))
-    try:
-        from models.ytdlp_wrapper import YTDLPWrapper
-        wrapper = YTDLPWrapper(str(tmp_path))
-        
-        # Download audio (will use fallback if FFmpeg unavailable)
-        result = wrapper.download_video(video_url, "mp3")
-        
-        # Should succeed with or without FFmpeg
-        assert result is True
-        assert any(tmp_path.iterdir())
-    finally:
-        sys.path.pop(0)
-        _purge_modules(["models", "controllers"])
 
 
 # ============================================================================

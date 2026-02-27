@@ -43,7 +43,26 @@ Downloads go to: `C:\Users\YourName\Downloads\`
 
 ---
 
-## 📱 Android Quick Start
+## 📱 React Native (Expo) Quick Start
+
+### 1. Install Dependencies
+```bash
+cd Android/React-Native
+yarn install
+```
+
+### 2. Run the Expo App
+```bash
+npx expo start
+```
+
+### 3. Download Locations
+- Final files: `/storage/emulated/0/Download/YTDownloader/`
+- Temporary files: app cache directory
+
+---
+
+## 📱 Android (Kivy) Quick Start
 
 ### 1. Prerequisites
 - Linux or WSL2 (for building APK)

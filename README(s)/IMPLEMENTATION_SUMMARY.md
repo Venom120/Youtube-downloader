@@ -126,6 +126,11 @@ videos = get_playlist_videos(playlist_url)
 - Progress tracked per card
 - Download state managed per card
 
+**5. React Native Download Flow**
+- Downloads stream into the app cache first
+- Completed files move to `/storage/emulated/0/Download/YTDownloader/`
+- Audio-only downloads keep their real extensions (m4a/webm) unless the stream is mp3
+
 ## 📊 File Structure Comparison
 
 ### Before (Monolithic)

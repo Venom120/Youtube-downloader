@@ -1,4 +1,4 @@
-name: Build Android APK
+name: React Native (Expo) Checks
 
 on:
   push:
@@ -10,75 +10,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17' # API 31+ works better with Java 17
+        uses: actions/checkout@v4
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            autoconf \
-            automake \
-            build-essential \
-            ccache \
-            cmake \
-            gettext \
-            git \
-            libffi-dev \
-            libltdl-dev \
-            libtool \
-            libssl-dev \
-            m4 \
-            patch \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            zip \
-            unzip
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip wheel setuptools
-          pip install "cython<3.0" 
-          pip install buildozer appdirs colorama toml jinja2 pyyaml six build
-      
-      - name: Build APK (Release)
-        working-directory: ./Android
-        run: |
-          # Use 'master' branch of p4a to ensure compatibility with Ubuntu 24.04 autotools
-          export P4A_RELEASE_BRANCH=master
-          buildozer -v android release
-        timeout-minutes: 60
-      
-      - name: Upload Release APK
-        if: success()
-        uses: actions/upload-artifact@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          name: youtube-downloader-release-apk
-          path: Android/bin/*.apk
-      
-      - name: Generate Build Report
-        if: always()
-        run: |
-          echo "## Build Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### APK Files Generated" >> $GITHUB_STEP_SUMMARY
-          if [ -d "Android/bin" ]; then
-            ls -lh Android/bin/*.apk >> $GITHUB_STEP_SUMMARY 2>&1 || echo "No APK files found" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "No bin directory found" >> $GITHUB_STEP_SUMMARY
-          fi
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: Android/React-Native/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: ./Android/React-Native
+        run: yarn install --frozen-lockfile
+
+      - name: Expo diagnostics
+        working-directory: ./Android/React-Native
+        run: npx expo-doctor
+
+      - name: TypeScript check
+        working-directory: ./Android/React-Native
+        run: yarn tsc --noEmit
