@@ -81,12 +81,12 @@ services:
       - web_net
 
   ytdownloader:
-    build: .
+    build:
+      context: /home/ubuntu/YTDonloader/Backend
+      dockerfile: DOCKERFILE
     container_name: ytdownloader
-    ports:
-      - "8000:8000"
     env_file:
-      - - /home/ubuntu/YTDonloader/Backend/.env
+      - /home/ubuntu/YTDonloader/Backend/.env
     volumes:
       - ./app:/app/app
       - ./downloads:/app/downloads
