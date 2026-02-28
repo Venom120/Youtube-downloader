@@ -33,13 +33,13 @@ else:
     print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
     print(f"[!] Some videos may be unavailable or blocked")
 
-# Debug: Check if Node.js (JavaScript runtime) is available
+# Debug: Check if Deno (JavaScript runtime) is available
 try:
-    node_version = subprocess.check_output(["node", "--version"], text=True).strip()
-    print(f"[✓] Node.js JavaScript runtime found: {node_version}")
+    deno_version = subprocess.check_output(["deno", "--version"], text=True).strip()
+    print(f"[✓] Deno JavaScript runtime found: {deno_version}")
 except (subprocess.CalledProcessError, FileNotFoundError):
-    print(f"[!] Node.js NOT found - yt-dlp cannot solve YouTube JavaScript challenges")
-    print(f"[!] Install Node.js for full YouTube support")
+    print(f"[!] Deno NOT found - yt-dlp cannot solve YouTube JavaScript challenges")
+    print(f"[!] Install Deno for full YouTube support")
 
 
 # Debug: Check if cookies file exists
@@ -80,7 +80,7 @@ class YTDLPService:
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": True,
-                "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
+                "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
             }
             
             # Add cookies if file exists
@@ -133,7 +133,7 @@ class YTDLPService:
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
-                "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
+                "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
             }
             
             # Add cookies if file exists
@@ -242,7 +242,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
+                    "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             else:  # mp4
@@ -251,7 +251,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
+                    "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             

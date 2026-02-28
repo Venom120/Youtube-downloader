@@ -6,9 +6,16 @@ WORKDIR /app
 # Install system dependencies for yt-dlp
 RUN apt-get update && apt-get install -y \
     ffmpeg \
-    nodejs \
-    npm \
+    curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Deno (recommended JavaScript runtime for yt-dlp EJS)
+RUN curl -fsSL https://deno.land/install.sh | sh && \
+    export PATH="/root/.deno/bin:$PATH"
+
+# Add deno to PATH for subsequent commands
+ENV PATH="/root/.deno/bin:${PATH}"
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
@@ -23,11 +30,11 @@ COPY . .
 RUN mkdir -p /app/downloads
 RUN mkdir -p /app/cookies
 
-# Create yt-dlp config to enable Node.js for JavaScript challenges
+# Create yt-dlp config to enable Deno for JavaScript challenges
 RUN mkdir -p /root/.config/yt-dlp && \
     echo "# yt-dlp configuration" > /root/.config/yt-dlp/config && \
-    echo "# Enable Node.js for EJS (JavaScript challenge solving)" >> /root/.config/yt-dlp/config && \
-    echo "--js-runtimes node" >> /root/.config/yt-dlp/config
+    echo "# Enable Deno for EJS (JavaScript challenge solving)" >> /root/.config/yt-dlp/config && \
+    echo "--js-runtimes deno" >> /root/.config/yt-dlp/config
 
 # Expose port
 EXPOSE 8000
