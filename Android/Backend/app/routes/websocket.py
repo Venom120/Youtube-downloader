@@ -3,7 +3,7 @@ from typing import Dict, Optional, Set
 import json
 import asyncio
 
-from middleware.auth import validate_app_id_ws
+from app.middleware.auth import validate_app_id_ws
 
 
 class ConnectionManager:

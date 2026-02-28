@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 import os
 
-from models.schemas import (
+from app.models.schemas import (
     SearchRequest,
     SearchResult,
     VideoInfoRequest,
@@ -12,7 +12,7 @@ from models.schemas import (
     DownloadStatus,
     CancelDownloadRequest,
 )
-from services.ytdlp_service import ytdlp_service
+from app.services.ytdlp_service import ytdlp_service
 
 router = APIRouter()
 
