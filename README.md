@@ -1,52 +1,105 @@
-# YouTube Downloader - Enhanced Version
+# YouTube Downloader - Client-Server Architecture
 
-A modern YouTube video and audio downloader for Windows and React Native (Expo) with search capabilities and a YouTube-like interface.
+A modern YouTube video and audio downloader with multiple deployment options:
+- **Windows Desktop** - Standalone application with CustomTkinter UI
+- **Backend API Server** - FastAPI server with yt-dlp for mobile clients
+- **React Native Mobile** - Cross-platform mobile app (Android/iOS)
 
-## ✨ New Features
+## 🏗️ Architecture Overview
 
-- **🔍 Search Functionality**: Search for videos directly without needing URLs
-- **🎨 Modern Card-Based UI**: YouTube-like interface with video thumbnails
-- **📑 Playlist Support**: Download entire playlists or individual videos from playlists
-- **⚡ yt-dlp Integration**: More reliable and feature-rich than pytube
-- **🏗️ MVC Architecture**: Clean, organized code structure for easy maintenance
-- **📱 Cross-Platform**: Windows desktop + React Native (Android/iOS)
+### Client-Server Model (Mobile)
+```
+React Native App (Client)
+        ↓ REST API + WebSocket
+FastAPI Backend (Server)
+        ↓ yt-dlp
+    YouTube
+```
 
-## 📁 New Project Structure
+### Standalone (Desktop)
+```
+Windows App (CustomTkinter)
+        ↓ yt-dlp
+    YouTube
+```
+
+## ✨ Features
+
+- **🔍 Video Search** - Search YouTube videos without URLs
+- **🎨 Modern UI** - YouTube-like card interface with thumbnails
+- **📑 Playlist Support** - Download entire playlists or individual videos
+- **⚡ Real-time Progress** - WebSocket updates for mobile downloads
+- **🔐 App Authentication** - Secure backend API with app ID validation
+- **🎯 Dual Architecture** - Standalone desktop or client-server for mobile
+- **📥 Multiple Formats** - MP4 video and MP3 audio downloads
+
+## 📁 Project Structure
 
 ```
 Youtube-downloader/
-├── Windows/
-│   ├── models/              # Data models and business logic
-│   │   ├── __init__.py
-│   │   ├── video_model.py   # VideoInfo and SearchResult classes
-│   │   └── ytdlp_wrapper.py # yt-dlp integration wrapper
-│   ├── controllers/         # Application controllers
-│   │   ├── __init__.py
+├── Windows/                      # 🖥️ Standalone Desktop Application
+│   ├── models/                   # Data models and business logic
+│   │   ├── video_model.py        # VideoInfo and SearchResult classes
+│   │   └── ytdlp_wrapper.py      # yt-dlp integration wrapper
+│   ├── controllers/              # Application controllers
 │   │   ├── download_controller.py
 │   │   └── search_controller.py
-│   ├── views/               # UI components
-│   │   ├── __init__.py
-│   │   └── video_card.py    # Video card widget
-│   ├── assets/              # Images and icons
-│   ├── main.py          # Main application (NEW VERSION)
-│   ├── main.py              # Old version (for reference)
-│   └── requirements.txt # Updated dependencies
+│   ├── views/                    # CustomTkinter UI components
+│   │   └── video_card.py         # Video card widget
+│   ├── main.py                   # Main application entry point
+│   └── requirements.txt          # Python dependencies
 │
-└── Android/React-Native/
-     ├── src/
-     │   ├── models/          # VideoInfo + SearchResult
-     │   ├── controllers/     # Search + download controllers
-     │   ├── services/        # youtubei.js wrapper
-     │   ├── views/           # React Native UI components
-     │   └── utils/           # Formatting helpers
-     ├── App.tsx          # Main Expo app
-     ├── app.json
-     └── package.json
+├── Android/
+│   ├── Backend/                   # 🔧 Backend API Server
+│   │   ├── app/
+│   │   │   ├── main.py           # FastAPI application
+│   │   │   ├── models/
+│   │   │   │   └── schemas.py    # Pydantic models
+│   │   │   ├── routes/
+│   │   │   │   ├── youtube.py    # REST API endpoints
+│   │   │   │   └── websocket.py  # WebSocket for progress
+│   │   │   ├── services/
+│   │   │   │   └── ytdlp_service.py  # yt-dlp wrapper
+│   │   │   └── middleware/
+│   │   │       └── auth.py       # App ID authentication
+│   │   ├── Dockerfile
+│   │   ├── docker-compose.yml
+│   │   └── requirements.txt
+│   │
+│   └── React-Native/             # 📱 Mobile Client Application
+│       ├── src/
+│       │   ├── api/              # Backend API client
+│       │   │   ├── backendClient.ts  # HTTP client
+│       │   │   ├── websocket.ts      # WebSocket client
+│       │   │   ├── youtube.ts        # YouTube API calls
+│       │   │   └── config.ts         # API configuration
+│       │   ├── controllers/      # Business logic
+│       │   │   ├── downloadController.ts
+│       │   │   └── searchController.ts
+│       │   ├── models/
+│       │   │   └── videoModel.ts # Video data models
+│       │   ├── services/
+│       │   │   └── ytdlWrapper-server.ts  # Backend wrapper
+│       │   ├── views/            # React Native UI
+│       │   │   ├── VideoCard.tsx
+│       │   │   └── DownloadsList.tsx
+│       │   └── utils/
+│       │       └── format.ts     # Formatting helpers
+│       ├── App.tsx               # Main React Native app
+│       ├── app.json
+│       └── package.json
+│
+└── README(s)/                     # 📚 Documentation
+    ├── BUILD_INSTRUCTIONS.md
+    ├── IMPLEMENTATION_SUMMARY.md
+    └── QUICK_START.md
 ```
 
 ## 🚀 Quick Start
 
-### Windows
+### Option 1: Windows Standalone Desktop App
+
+The Windows app runs independently without needing a backend server.
 
 1. **Install Dependencies**:
    ```bash
@@ -64,45 +117,177 @@ Youtube-downloader/
    python -m PyInstaller main.spec
    ```
 
-### React Native (Expo)
+### Option 2: Mobile App with Backend Server
 
-1. **Install Dependencies**:
-     ```bash
-     cd Android/React-Native
-     yarn install
-     ```
+The React Native mobile app requires a backend server to handle downloads.
 
-2. **Run the Expo App**:
-     ```bash
-     npx expo start
-     ```
+#### Step 1: Start the Backend Server
 
-3. **Download Locations**:
-     - Final files: `/storage/emulated/0/Download/YTDownloader/`
-     - Temporary files: app cache directory
+**Using Docker (Recommended)**:
+```bash
+cd Android/Python
+docker-compose up --build
+```
 
-4. **Android Storage Note (Android 11+)**:
-     - Writing to `/storage/emulated/0/Download/` can be restricted by scoped storage.
-     - If saving fails, grant storage permission or use a release build with the required permissions.
+**Or Manual Setup**:
+```bash
+cd Android/Python
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The backend API will be available at `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+#### Step 2: Configure & Run React Native App
+
+1. **Create `.env` file** in `Android/React-Native/`:
+   ```env
+   BACKEND_URL=http://YOUR_SERVER_IP:8000
+   WS_URL=ws://YOUR_SERVER_IP:8000
+   APP_ID=com.venom120.ytdownloader
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   cd Android/React-Native
+   npm install
+   ```
+
+3. **Run the App**:
+   ```bash
+   npx expo start
+   ```
+
+4. **Build for Production**:
+   ```bash
+   # Android APK
+   eas build --platform android --profile production
+   
+   # iOS
+   eas build --platform ios --profile production
+   ```
 
 ## 📋 Requirements
 
-### Windows
-- Python 3.10+ (recommended)
-- yt-dlp 2026.2.21
-- customtkinter 5.2.2
-- pillow 12.1.1
-- requests 2.32.5
-- certifi 2026.2.25
-- pyinstaller 6.19.0 (for building EXE)
+### Windows Desktop App (Standalone)
+- Python 3.10+
+- yt-dlp 2024.x+
+- customtkinter 5.2.2+
+- pillow 12.1.1+
+- requests 2.32.5+
 - FFmpeg (for MP3 downloads)
 
-### React Native (Expo)
+### Backend Server (FastAPI)
+- Python 3.11+
+- FastAPI 0.115.x
+- yt-dlp 2024.x+
+- uvicorn 0.34.x
+- python-dotenv 1.0.x
+- FFmpeg (for audio extraction)
+- Docker (optional, recommended)
+
+### React Native Mobile App
 - Node.js 20+
-- Expo SDK 54
-- youtubei.js 16.x
-- expo-file-system 19.x
-- expo-linking 8.x
+- Expo SDK 52
+- React Native 0.76.x
+- TypeScript 5.x
+- Axios 1.7.x
+- Backend server running and accessible
+
+## 🔧 Backend API Documentation
+
+The FastAPI backend provides RESTful endpoints and WebSocket support for real-time updates.
+
+### REST Endpoints
+
+**POST `/api/search`** - Search for YouTube videos
+```json
+Request:
+{
+  "query": "python tutorial",
+  "maxResults": 20
+}
+
+Response:
+{
+  "videos": [
+    {
+      "videoId": "xxx",
+      "title": "...",
+      "thumbnailUrl": "...",
+      "duration": 600,
+      "channel": "...",
+      "viewCount": 12345,
+      "url": "..."
+    }
+  ],
+  "query": "python tutorial",
+  "page": 1,
+  "hasMore": false
+}
+```
+
+**POST `/api/video-info`** - Get video information
+```json
+Request:
+{
+  "url": "https://youtube.com/watch?v=VIDEO_ID"
+}
+
+Response: VideoInfo object
+```
+
+**POST `/api/download`** - Initiate download
+```json
+Request:
+{
+  "url": "https://youtube.com/watch?v=VIDEO_ID",
+  "format": "mp4"  // or "mp3"
+}
+
+Response:
+{
+  "downloadId": "uuid",
+  "videoId": "xxx",
+  "downloadUrl": "/api/download-file/{downloadId}",
+  "fileName": "video.mp4",
+  "fileSize": 12345678,
+  "format": "mp4"
+}
+```
+
+**GET `/api/download-status/{downloadId}`** - Check download status
+
+**GET `/api/download-file/{downloadId}`** - Download completed file
+
+**POST `/api/cancel-download`** - Cancel active download
+
+### WebSocket Endpoint
+
+**WS `/ws`** - Real-time download progress
+
+Connected clients receive progress updates:
+```json
+{
+  "type": "download_progress",
+  "downloadId": "uuid",
+  "status": "downloading",
+  "progress": 45.5,
+  "downloadedBytes": 5000000,
+  "totalBytes": 11000000,
+  "speed": "1.2 MB/s",
+  "eta": "5s"
+}
+```
+
+### Authentication
+
+All API requests require an `X-App-Id` header with a valid app identifier:
+```
+X-App-Id: com.venom120.ytdownloader
+```
 
 ## 🎯 Features Breakdown
 
@@ -137,112 +322,119 @@ Youtube-downloader/
 
 ## 📥 Download Flow Diagrams
 
-These diagrams show the internal download strategies for each platform and format. Understanding these flows helps explain why certain downloads succeed or fail, and what formats you'll get.
+### React Native (Client-Server Architecture)
 
-### React Native MP3 Download Strategy
-
+**Search & Video Info:**
 ```
-User clicks "Download as MP3" on React Native
-                    ↓
-     youtubei.js selects best audio stream
-                    ↓
-           Download to cache folder
-                    ↓
-      Move to Download/YTDownloader
-                    ↓
-✅ Saved as M4A/WebM (or MP3 if stream is mp3)
-```
-
-### React Native MP4 Download Strategy
-
-```
-User clicks "Download as MP4" on React Native
-                    ↓
-     youtubei.js selects MP4 stream
-                    ↓
-      Download to cache folder
-                    ↓
-      Move to Download/YTDownloader
-                    ↓
-          ✅ Success (or error)
+React Native App
+        ↓ HTTP POST /api/search
+Backend Server (FastAPI)
+        ↓ yt-dlp
+    YouTube API
+        ↓ Video metadata
+Backend Server
+        ↓ JSON Response
+React Native App (displays cards)
 ```
 
-### Windows MP3 Download Strategy
-
+**Download Flow:**
 ```
-User clicks "Download as MP3" on Windows
-                    ↓
-    Check FFmpeg availability
-                    ↓
-         ┌──────────────────┐
-         │                  │
-    FFmpeg found?      FFmpeg not found?
-         │                  │
-         ↓                  ↓
-    Download Best Audio   ❌ Error Message
-         │                "FFmpeg not installed"
-         ↓
-    Convert to MP3
-    (192kbps quality)
-         │
-         ↓
-    ✅ Success
-```
-
-### Windows MP4 Download Strategy
-
-```
-User clicks "Download as MP4" on Windows
-                    ↓
-    Download best video + audio
-                    ↓
-    Format: bestvideo[ext=mp4]+bestaudio[ext=m4a]
-                    ↓
-    Merge to MP4 (if separate streams)
-                    ↓
-         ┌──────────────────┐
-         │                  │
-    Format available?   Not available?
-         │                  │
-         ↓                  ↓
-    Download & Merge    Try best[ext=mp4]
-         │                  │
-         ↓                  ↓
-    ✅ Success         Try best format
-                            │
-                            ↓
-                       ✅ Success (or error)
+User clicks "Download as MP4/MP3"
+        ↓
+React Native sends POST /api/download
+        ↓
+Backend Server initiates yt-dlp download
+        ↓
+WebSocket sends progress updates
+        ↓
+React Native displays real-time progress
+        ↓
+Backend completes download
+        ↓
+WebSocket sends completion event
+        ↓
+React Native downloads file from /api/download-file/{id}
+        ↓
+File saved to device storage
+        ↓
+✅ Complete
 ```
 
-**Key Differences**:
-- **React Native MP3**: Saves best available audio (M4A/WebM) without FFmpeg
-- **Windows MP3**: Requires FFmpeg, fails if not installed
-- **React Native MP4**: Saves best MP4 stream available
-- **Windows MP4**: Uses yt-dlp's advanced merging capabilities
+**Download Strategy (Server-Side with yt-dlp):**
+- **MP4**: Downloads best quality video+audio streams and merges
+- **MP3**: Uses FFmpeg to extract audio and convert to 192kbps MP3
+- All processing happens on the server
+- Client receives the completed file via HTTP download
 
-**What You'll Actually Get**:
+### Windows (Standalone Architecture)
 
-| Platform | Format Requested | FFmpeg Installed | What You Get |
-|----------|------------------|------------------|--------------|
-| React Native | MP3          | N/A              | `.m4a` or `.webm` audio |
-| React Native | MP4          | N/A              | `.mp4` file (best quality) |
-| Windows  | MP3              | ✅ Yes           | `.mp3` file (192kbps) |
-| Windows  | MP3              | ❌ No            | ❌ Error message |
-| Windows  | MP4              | Either           | `.mp4` file (best quality) |
+**Direct yt-dlp Integration:**
+```
+User clicks "Download as MP4/MP3"
+        ↓
+Windows App calls yt-dlp directly
+        ↓ (threading for non-blocking UI)
+yt-dlp downloads from YouTube
+        ↓ Progress callbacks
+Windows App updates UI in real-time
+        ↓
+File saved to local Downloads folder
+        ↓
+✅ Complete
+```
 
-**Tips**:
-- React Native MP3 downloads are M4A/WebM; convert externally if you need true MP3
+**Download Strategy:**
+- **MP4**: `bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best`
+- **MP3**: Requires FFmpeg, extracts audio and converts to MP3 (192kbps)
+- No server required - all processing local
+- Direct file system access
+
+## 🔄 Architecture Comparison
+
+| Feature | Windows (Standalone) | React Native + Backend |
+|---------|---------------------|------------------------|
+| **Architecture** | Monolithic desktop app | Client-server model |
+| **Download Engine** | yt-dlp (local) | yt-dlp (server) |
+| **Progress Updates** | Threading + callbacks | WebSocket real-time |
+| **File Storage** | Local downloads folder | Server → Device transfer |
+| **Authentication** | Not required | App ID header required |
+| **FFmpeg** | Optional (needed for MP3) | Required on server |
+| **Network** | Direct to YouTube | Via backend API |
+| **Offline Capability** | Yes (after download) | Requires server connection |
 
 ## 🏗️ Architecture
 
-### MVC Pattern
+### Client-Server Model (Mobile)
 
-**Models** (`models/`):
-- `video_model.py`: Data structures for videos and search results
-- `ytdlp_wrapper.py`: Unified wrapper for yt-dlp (Windows)
-- `Android/React-Native/src/services/ytdlpWrapper.ts`: youtubei.js wrapper for Expo
+**Backend Server** (`Android/Python/`):
+- FastAPI framework with async/await support
+- yt-dlp service for YouTube interactions
+- WebSocket manager for real-time updates
+- Pydantic models for request/response validation
+- Middleware for app authentication
+- Docker containerization for easy deployment
 
-**Controllers** (`controllers/`):
+**React Native Client** (`Android/React-Native/`):
+- TypeScript with React Native
+- Expo framework for cross-platform support
+- Axios for HTTP requests
+- WebSocket client for progress updates
+- MVC architecture:
+  - **Models**: `videoModel.ts` - Data structures
+  - **Controllers**: Business logic for search/download
+  - **Views**: React components for UI
+  - **Services**: `ytdlWrapper-server.ts` - Backend API wrapper
+
+### Standalone Model (Desktop)
+
+**Windows Application** (`Windows/`):
+- CustomTkinter for modern UI
+- Direct yt-dlp integration (no server)
+- Threading for async operations
+- MVC architecture:
+  - **Models**: Data structures and yt-dlp wrapper
+  - **Controllers**: Search and download logic
+  - **Views**: UI components and video cards
 - `search_controller.py`: Handles search and video info retrieval
 - `download_controller.py`: Manages download operations and progress
 
@@ -276,22 +468,83 @@ The new version (`main.py`) can coexist with the old version. To switch:
 
 ## 🐛 Known Issues & Limitations
 
-1. **Platform-Specific Dependencies**: 
-   - **Windows**: Uses yt-dlp (more features, latest updates)
-   - **React Native**: Uses youtubei.js (pure JS, Expo compatible)
-   - The models handle both libraries transparently
+## 🐛 Known Issues & Limitations
 
-2. **Audio Download (MP3) on React Native**: 
-   - Uses the best available audio stream without FFmpeg
-   - Saves M4A/WebM audio depending on the stream
-   - Convert externally if you need true MP3 files
+1. **Backend Server Required for Mobile**: 
+   - React Native app requires a running backend server
+   - Server must be accessible over network (not localhost on mobile devices)
+   - Use ngrok, your VPS, or local network IP for testing
 
-3. **Windows MP3 Downloads**: 
-   - Requires FFmpeg to be installed: https://ffmpeg.org/
-   - Download and add to PATH for best results
+2. **FFmpeg Requirement**: 
+   - Backend server requires FFmpeg for MP3 audio extraction
+   - Windows standalone app needs FFmpeg for MP3 downloads
+   - Install from https://ffmpeg.org/
 
-4. **Large Playlists**: May take time to load all video information
+3. **WebSocket Connections**: 
+   - Mobile devices may disconnect WebSocket on app backgrounding
+   - Downloads continue on server, but progress updates may be missed
+   - Reconnection logic handles resuming progress updates
+
+4. **File Size Limits**: 
+   - Large video downloads may timeout depending on network
+   - Server storage capacity determines maximum concurrent downloads
+
+5. **Large Playlists**: 
+   - May take time to load all video information
    - Progress indication provided
+   - Backend processes playlists sequentially
+
+## 🌐 Deployment
+
+### Backend Server Deployment Options
+
+**1. Docker (Recommended)**
+```bash
+cd Android/Python
+docker-compose up -d
+```
+
+**2. Local Server**
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**3. Cloud Deployment (VPS/Cloud Platform)**
+- Deploy Docker container to AWS, DigitalOcean, Azure, etc.
+- Ensure FFmpeg is installed
+- Configure firewall to allow ports 8000 (HTTP) and WebSocket
+- Set environment variables in `.env`:
+  ```env
+  DOWNLOAD_DIR=/app/downloads
+  ALLOWED_APP_IDS=com.venom120.ytdownloader
+  ```
+
+**4. Reverse Proxy (Production)**
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+### Mobile App Configuration
+
+Update `.env` in React Native app with your backend URL:
+```env
+BACKEND_URL=https://your-domain.com
+WS_URL=wss://your-domain.com
+APP_ID=com.venom120.ytdownloader
+```
 
 ## 🔧 Build Automation & CI/CD
 
@@ -299,108 +552,64 @@ The new version (`main.py`) can coexist with the old version. To switch:
 
 The project includes automated build pipelines:
 
-- **[.github/workflows/build-windows.yml](.github/workflows/build-windows.yml)**: Builds Windows EXE on push/PR
-  - Runs on Windows Server (latest)
-  - Builds standalone executable with PyInstaller
-  - Artifacts uploaded for release
-
-- **[.github/workflows/build-android.yml](.github/workflows/build-android.yml)**: Expo checks for the React Native app
-     - Runs on Ubuntu (latest)
-     - Installs Yarn dependencies
-     - Runs Expo diagnostics and TypeScript checks
+- **Build Windows EXE**: Automated PyInstaller builds
+- **Build Mobile App**: EAS builds for Android/iOS (when configured)
+- **Docker Image**: Backend server containerization
 
 ### Local Build Scripts
 
-Run the build script to create distribution packages:
-
 ```bash
-# Windows - PowerShell
-.\build_all.ps1
+# Windows Desktop App
+cd Windows
+python -m PyInstaller main.spec
 
-# Or build individually:
-.\Windows\build_windows.ps1
+# Backend Docker Image
+cd Android/Python
+docker build -t ytdownloader-backend .
+
+# React Native App
+cd Android/React-Native
+eas build --platform android --profile production
 ```
 
 ## 🤝 Contributing
 
-Contributions are welcome! The MVC structure makes it easy to add new features:
-- Add new models in `models/`
+Contributions are welcome! The modular architecture makes it easy to add new features:
+
+**Backend Server** (`Android/Python/`):
+- Add new API endpoints in `app/routes/`
+- Extend services in `app/services/`
+- Add data models in `app/models/schemas.py`
+
+**React Native Client** (`Android/React-Native/`):
+- Add UI components in `src/views/`
+- Extend controllers in `src/controllers/`
+- Add API methods in `src/api/`
+
+**Windows App** (`Windows/`):
+- Add models in `models/`
 - Add controller logic in `controllers/`
-- Create new UI components in `views/`
+- Create UI components in `views/`
 
 ## 📝 License
 
-[Your License Here]
+MIT License - See LICENSE file for details
 
 ## 🙏 Acknowledgments
 
-- **yt-dlp**: Excellent YouTube download library
-- **CustomTkinter**: Modern UI for Windows
-- **youtubei.js**: YouTube data API wrapper for React Native
+- **FastAPI**: Modern Python web framework
+- **React Native & Expo**: Cross-platform mobile development
+- **CustomTkinter**: Modern UI library for Windows
 
 ---
 
-## 📖 API Documentation
+## 📚 More Documentation
 
-### YTDLPWrapper
-
-Unified wrapper for YouTube download operations. Uses yt-dlp for Windows and youtubei.js for React Native.
-
-**Methods**:
-- `get_video_info(url)`: Get video/playlist information
-- `search_videos(query, max_results)`: Search YouTube with pagination support
-- `get_playlist_videos(url)`: Get all videos in a playlist
-- `download_video(url, format_type, callbacks)`: Download a video or playlist
-- `download_playlist(url, format_type, callbacks)`: Download entire playlist
-
-**Features**:
-- Automatic library selection per platform
-- **Smart Audio Download** (React Native):
-     - Saves best available audio stream (M4A/WebM)
-     - No FFmpeg required in Expo
-- Comprehensive error handling with user-friendly messages:
-  - Private/restricted videos
-  - Age-restricted content
-  - Region-locked videos
-  - Storage space issues
-  - FFmpeg availability
-  - Network errors
-- Progress tracking with callbacks (0-100%)
-- Thumbnail extraction with fallback handling
-- Support for both MP4 and MP3/audio downloads
-
-**Audio Format Selection** (React Native audio downloads):
-When you request MP3 in the Expo app, the wrapper:
-1. Picks the best available audio stream
-2. Saves the stream as M4A/WebM (no FFmpeg)
-3. You can convert the file externally if you need true MP3
-
-**Error Handling Examples**:
-```python
-result = wrapper.download_video(
-    url,
-    format_type='mp4',
-    progress_callback=lambda p: print(f"Progress: {p}%"),
-    complete_callback=lambda f: print(f"Downloaded: {f}")
-)
-
-if not result:
-    # Check console for specific error message
-    # e.g., "FFmpeg not installed (required for MP3 downloads)"
-    pass
-```
-
-### Controllers
-
-**SearchController**:
-- Manages async search operations
-- Caches search results
-- Handles video info retrieval
-
-**DownloadController**:
-- Manages concurrent downloads
-- Tracks download progress
-- Maintains download history
+For detailed information, see:
+- [Quick Start Guide](README(s)/QUICK_START.md) - Get started quickly
+- [Build Instructions](README(s)/BUILD_INSTRUCTIONS.md) - Building executables and APKs
+- [Implementation Summary](README(s)/IMPLEMENTATION_SUMMARY.md) - Technical implementation details
+- [Backend API README](Android/Python/README.md) - FastAPI backend documentation
 
 ---
 

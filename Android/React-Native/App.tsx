@@ -1,6 +1,5 @@
 import { StatusBar } from "expo-status-bar";
 import * as FileSystem from "expo-file-system";
-import * as MediaLibrary from "expo-media-library";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,6 +18,7 @@ import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import * as FileSystemLegacy from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DownloadController, DownloadTask } from "./src/controllers/downloadController";
 import { SearchController } from "./src/controllers/searchController";
 import { VideoInfo } from "./src/models/videoModel";
@@ -27,6 +27,8 @@ import { DownloadsList } from "./src/views/DownloadsList";
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value.trim());
 const isPlaylistUrl = (value: string): boolean => /[?&]list=/.test(value);
+
+const SAF_STORAGE_KEY = '@ytdownloader_saf_uri';
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -43,20 +45,10 @@ export default function App() {
   const searchController = useMemo(() => new SearchController(), []);
   const downloadControllerRef = useRef<DownloadController | null>(null);
   const downloadUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const requireExternalDownloadDir = false; // use media-library fallback when external storage isn't writable
 
   useEffect(() => {
     const initDownloadDir = async () => {
       try {
-        // Request MediaLibrary permission (for media access) first
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status !== "granted") {
-          console.warn("Media library permission not granted:", status);
-          setError(
-            "Media library permission is recommended to save downloads. You can grant it in app settings."
-          );
-        }
-
         // Request Android file permissions when running on Android
         const ensureAndroidStorage = async (): Promise<boolean> => {
           if (Platform.OS !== "android") return true;
@@ -67,7 +59,6 @@ export default function App() {
             ]);
 
             const write = perms[PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE];
-            const read = perms[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE];
 
             // On Android 11+ WRITE_EXTERNAL_STORAGE may not be sufficient due to scoped storage.
             if (Platform.Version >= 30) {
@@ -137,54 +128,30 @@ export default function App() {
           console.error("Failed to create cache directory:", cacheError);
         }
 
-        // Try to access Android's public Download folder
+        // Try to load stored SAF directory URI from AsyncStorage
+        let safDirectoryUri: string | null = null;
         try {
-          // Detect external storage base path by probing common locations instead
-          const probeBases = [
-            "file:///storage/emulated/0",
-            "file:///sdcard",
-            "file:///mnt/sdcard",
-            "file:///storage/sdcard0",
-          ];
-
-          let baseFound: string | null = null;
-          for (const base of probeBases) {
+          const storedUri = await AsyncStorage.getItem(SAF_STORAGE_KEY);
+          if (storedUri) {
+            console.log('Found stored SAF URI:', storedUri);
+            // Verify the stored URI still has access
             try {
-              const info = await FileSystem.getInfoAsync(base);
-              if (info.exists) {
-                baseFound = base;
-                break;
-              }
-            } catch (e) {
-              // ignore
+              const { StorageAccessFramework } = FileSystemLegacy as any;
+              const files = await StorageAccessFramework.readDirectoryAsync(storedUri);
+              console.log('Stored SAF URI is valid, has access to', files.length, 'items');
+              safDirectoryUri = storedUri;
+            } catch (verifyErr) {
+              console.warn('Stored SAF URI no longer accessible, will prompt user:', verifyErr);
+              // Clear invalid stored URI
+              await AsyncStorage.removeItem(SAF_STORAGE_KEY);
             }
           }
-
-          if (baseFound) {
-            const externalDownloadPath = `${baseFound}/Download/YTDownloader`;
-            const externalDir = new FileSystem.Directory(externalDownloadPath);
-            console.log("Attempting to access external Download folder:", externalDownloadPath);
-            try {
-              if (!externalDir.exists) {
-                await externalDir.create({ intermediates: true, idempotent: true });
-                console.log("Created external Download folder");
-              } else {
-                console.log("Using existing external Download folder");
-              }
-              finalDownloadDir = externalDir;
-            } catch (createError) {
-              console.warn("Cannot create external Download folder:", createError);
-            }
-          } else {
-            console.log("No external storage base found; skipping external Download probe.");
-          }
-        } catch (externalError) {
-          console.warn("Cannot access external storage:", externalError);
+        } catch (storageErr) {
+          console.warn('Failed to load stored SAF URI:', storageErr);
         }
 
-        // If we couldn't create/use the external Download folder, prompt user to pick a directory via SAF
-        let safDirectoryUri: string | null = null;
-        if (!finalDownloadDir) {
+        // Prompt user to pick a directory via SAF if no valid stored URI
+        if (!safDirectoryUri && !finalDownloadDir) {
           try {
             const { StorageAccessFramework } = FileSystemLegacy as any;
             // Try to target the native Downloads root if helper exists
@@ -201,27 +168,18 @@ export default function App() {
             if (perms.granted) {
               safDirectoryUri = perms.directoryUri;
               console.log('User selected SAF directory:', safDirectoryUri);
+              // Save the selected URI to AsyncStorage
+              try {
+                await AsyncStorage.setItem(SAF_STORAGE_KEY, safDirectoryUri!);
+                console.log('Saved SAF URI to storage');
+              } catch (saveErr) {
+                console.warn('Failed to save SAF URI:', saveErr);
+              }
             } else {
               console.log('User did not grant SAF directory access');
             }
           } catch (e) {
             console.warn('SAF directory selection failed or not supported in this environment', e);
-          }
-        }
-
-        // Fallback to app's document directory
-        if (!finalDownloadDir && !requireExternalDownloadDir) {
-          console.log("Falling back to app document directory");
-          const documentDir = FileSystem.Paths.document;
-          finalDownloadDir = new FileSystem.Directory(documentDir, "YTDownloader");
-          
-          try {
-            if (!finalDownloadDir.exists) {
-              finalDownloadDir.create({ intermediates: true, idempotent: true });
-            }
-            console.log("YTDownloader folder ready in document directory");
-          } catch (createError) {
-            console.log("Directory creation note:", createError);
           }
         }
 
@@ -231,25 +189,18 @@ export default function App() {
           return;
         }
 
-        // If we have an external finalDownloadDir, use its URI. Otherwise fall back to media-library album.
-        if (finalDownloadDir && finalDownloadDir.uri) {
-          const path = finalDownloadDir.uri;
-          console.log("Download directory ready:", path);
-          setDownloadPath(path);
-          downloadControllerRef.current = new DownloadController(path, cacheDir.uri);
-        } else if (typeof safDirectoryUri === 'string' && safDirectoryUri) {
-          // Use SAF directory picked by user
+        // SAF-only flow: require the user to select a directory via SAF
+        if (typeof safDirectoryUri === 'string' && safDirectoryUri) {
           console.log('Using SAF directory as final destination:', safDirectoryUri);
-          setDownloadPath(`SAF: ${safDirectoryUri}`);
+          // Store the raw SAF URI so downstream logic can detect content:// correctly
+          setDownloadPath(safDirectoryUri);
           downloadControllerRef.current = new DownloadController(safDirectoryUri, cacheDir.uri, true);
+          setIsReady(true);
         } else {
-          // Use media library fallback; show album name as download path
-          const albumName = "YTDownloader";
-          console.log("Using media-library album as final destination:", albumName);
-          setDownloadPath(`Media Library / ${albumName}`);
-          downloadControllerRef.current = new DownloadController("", cacheDir.uri);
+          console.error('No SAF directory selected — downloads disabled.');
+          setError('Please choose a destination folder when prompted so downloads can be saved (SAF).');
+          return;
         }
-        setIsReady(true);
       } catch (err) {
         console.error("initDownloadDir failed:", err);
         setError(
@@ -378,6 +329,44 @@ export default function App() {
     setDownloads([...downloadControllerRef.current.getAllDownloads()]);
   };
 
+  const handleChangeSafDirectory = async () => {
+    try {
+      const { StorageAccessFramework } = FileSystemLegacy as any;
+      let initialUri: string | undefined = undefined;
+      try {
+        if (typeof StorageAccessFramework.getUriForDirectoryInRoot === 'function') {
+          initialUri = StorageAccessFramework.getUriForDirectoryInRoot('Download');
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      const perms = await StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+      if (perms.granted) {
+        const newSafUri = perms.directoryUri;
+        console.log('User selected new SAF directory:', newSafUri);
+        
+        // Save to AsyncStorage
+        await AsyncStorage.setItem(SAF_STORAGE_KEY, newSafUri);
+        console.log('Saved new SAF URI to storage');
+        
+        // Update state and recreate download controller
+        setDownloadPath(newSafUri);
+        if (cachePath) {
+          downloadControllerRef.current = new DownloadController(newSafUri, cachePath, true);
+          setIsReady(true);
+          setError(null);
+          Alert.alert('Success', 'Download folder updated successfully');
+        }
+      } else {
+        console.log('User cancelled SAF directory selection');
+      }
+    } catch (e) {
+      console.error('Failed to change SAF directory:', e);
+      Alert.alert('Error', 'Failed to change download folder');
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -387,14 +376,22 @@ export default function App() {
             <Text style={styles.title}>YT Downloader</Text>
             <Text style={styles.subtitle}>Search or paste a YouTube URL</Text>
           </View>
-          <TouchableOpacity
-            style={styles.downloadsButton}
-            onPress={() => setShowDownloadsModal(true)}
-          >
-            <Text style={styles.downloadsButtonText}>
-              ⬇ {downloads.length}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.folderButton}
+              onPress={handleChangeSafDirectory}
+            >
+              <Text style={styles.downloadsButtonText}>📁</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.downloadsButton}
+              onPress={() => setShowDownloadsModal(true)}
+            >
+              <Text style={styles.downloadsButtonText}>
+                ⬇ {downloads.length}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.searchRow}>
           <TextInput
@@ -409,8 +406,6 @@ export default function App() {
             <Text style={styles.searchButtonText}>Search</Text>
           </TouchableOpacity>
         </View>
-        {downloadPath ? <Text style={styles.downloadPath}>Downloads: {downloadPath}</Text> : null}
-        {cachePath ? <Text style={styles.downloadPath}>Cache: {cachePath}</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {!isReady && downloadPath === "" ? (
           <View style={styles.loadingRow}>
@@ -479,6 +474,19 @@ const styles = StyleSheet.create({
   subtitle: {
     color: "#9b9b9b",
     marginTop: 4,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  folderButton: {
+    backgroundColor: "#cc6600",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 50,
   },
   downloadsButton: {
     backgroundColor: "#0066cc",

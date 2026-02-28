@@ -33,26 +33,43 @@ export const DownloadsList: React.FC<DownloadsListProps> = ({
 }) => {
   const handleOpenFolder = async () => {
     try {
-      if (!downloadPath) {
-        return;
+      if (!downloadPath) return;
+
+      // 1. If we are using a SAF directory (content://), open it directly
+      // Guard: strip any accidental 'SAF: ' prefix userspace code might add
+      const rawPath = downloadPath.startsWith('SAF:') ? downloadPath.replace(/^SAF:\s*/i, '') : downloadPath;
+      if (rawPath.startsWith('content://')) {
+        try {
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: rawPath,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          });
+          return;
+        } catch (e) {
+          console.warn('Failed to open SAF directory', e);
+        }
       }
-      // Convert to proper file:// URI for Android
+
+      // 2. For legacy paths, ensure proper file:// format
       const folderUri = downloadPath.startsWith("file://") ? downloadPath : `file://${downloadPath}`;
 
       try {
-        // Use legacy getContentUriAsync to convert file:// URI to content:// URI before opening
-        const contentUri = await FileSystemLegacy.getContentUriAsync(folderUri as string);
+        // Attempt to convert to a content:// URI
+        const contentUri = await FileSystemLegacy.getContentUriAsync(folderUri);
         await Linking.openURL(contentUri);
         return;
       } catch (e) {
-        console.warn('getContentUriAsync failed, falling back to openURL with file://', e);
+        console.warn('getContentUriAsync failed, avoiding Intent crash', e);
       }
 
-      // Final fallback: try opening with IntentLauncher (may still fail on some Android versions)
+      // 3. Fallback: Open the generic Android File Manager without passing the strict file:// URI
       try {
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: folderUri });
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { 
+           type: '*/*', // Generic type to prompt file explorers
+           flags: 1 
+        });
       } catch (err) {
-        console.error('Could not open folder:', err);
+        console.error('Could not open file manager:', err);
         Alert.alert('Open folder failed', 'Cannot open the Downloads folder from the app. Please open your file manager manually.');
       }
     } catch (error) {

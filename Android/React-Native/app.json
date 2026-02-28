@@ -55,14 +55,7 @@
         {
           "photosPermission": "Allow YTDownloader to save downloaded videos"
         }
-      ],
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow YTDownloader to save downloads",
-          "savePhotosPermission": "Allow YTDownloader to save videos and audio to your device"
-        }
-      ]
+      ]      
     ],
     "extra": {
       "eas": {

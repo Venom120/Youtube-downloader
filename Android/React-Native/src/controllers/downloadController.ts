@@ -1,5 +1,5 @@
 import { VideoInfo } from "../models/videoModel";
-import { YTDLPWrapper } from "../services/ytdlpWrapper";
+import { YTDLPWrapper } from "../services/ytdlWrapper-server";
 
 export type DownloadTask = {
   downloadId: string;

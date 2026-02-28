@@ -1,0 +1,109 @@
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    depends_on:
+      - portfolio
+      - scriveners
+      - n8n
+    volumes:
+      - ./nginx:/etc/nginx/conf.d:ro
+      - /var/www/html/www:/var/www/html/www:ro
+      - /var/www/resources:/var/www/resources:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - web_net
+
+  portfolio:
+    build:
+      context: /home/ubuntu/portfolio
+      dockerfile: DOCKERFILE
+    container_name: portfolio
+    expose:
+      - 80
+    networks:
+      - web_net
+
+  scriveners:
+    build:
+      context: /home/ubuntu/scriveners
+      dockerfile: DOCKERFILE
+    env_file:
+      - /home/ubuntu/scriveners/.env
+    container_name: scriveners
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    expose:
+      - 80
+      - 8100
+    networks:
+      - web_net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    env_file: .env
+    environment:
+      N8N_PORT: 5678
+      N8N_HOST: n8n.venoms.app
+      WEBHOOK_URL: https://n8n.venoms.app
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${DB_DATABASE}
+      DB_POSTGRESDB_USER: ${DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${DB_PASSWORD}
+      DB_SQLITE_POOL_SIZE: "1"
+      N8N_BASIC_AUTH_ACTIVE: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    expose:
+      - 5678
+    networks:
+      - web_net
+
+  postgres:
+    image: postgres:15
+    container_name: n8n_postgres
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    networks:
+      - web_net
+
+  ytdownloader:
+    build: .
+    container_name: ytdownloader
+    ports:
+      - "8000:8000"
+    env_file:
+      - - /home/ubuntu/YTDonloader/Backend/.env
+    volumes:
+      - ./app:/app/app
+      - ./downloads:/app/downloads
+    expose:
+      - 8000
+    restart: unless-stopped
+    networks:
+      - ytdownloader-network
+
+volumes:
+  postgres_data:
+  n8n_data:
+
+networks:
+  web_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
+  ytdownloader-network:
+    driver: bridge

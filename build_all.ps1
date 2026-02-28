@@ -50,40 +50,8 @@ catch {
 }
 Write-Host ""
 
-# ===== BUILD ANDROID APK =====
-Write-Host "[3/5] Building Android APK..." -ForegroundColor Yellow
-
-try {
-    Set-Location (Join-Path $root "Android")
-
-    Write-Host "Installing Android dependencies..."
-    python -m pip install buildozer cython --quiet
-
-    Write-Host "Checking buildozer configuration..."
-    $buildozerHelp = buildozer --help 2>&1
-    if ($buildozerHelp -match "android") {
-        Write-Host "Building Android APK (this may take several minutes)..."
-        buildozer android release
-
-        $apkPath = Get-ChildItem "bin\*.apk" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($apkPath) {
-            Write-Host "[OK] Android APK build successful: $($apkPath.Name)" -ForegroundColor Green
-        } else {
-            throw "APK file not found in bin directory"
-        }
-    } else {
-        Write-Host "[WARN] Android target not available in buildozer on Windows" -ForegroundColor Yellow
-        Write-Host "Note: Android builds require Linux/macOS. Use WSL 2 or GitHub Actions for Android APK builds." -ForegroundColor Yellow
-    }
-}
-catch {
-    Write-Host "[WARN] Android build failed: $_" -ForegroundColor Yellow
-    Write-Host "Note: Android build requires buildozer to have Android target available (Linux/macOS)." -ForegroundColor Yellow
-}
-Write-Host ""
-
 # ===== COLLECT OUTPUT FILES =====
-Write-Host "[4/5] Collecting output files..." -ForegroundColor Yellow
+Write-Host "[3/4] Collecting output files..." -ForegroundColor Yellow
 
 Set-Location $root
 
@@ -105,27 +73,14 @@ if ((Test-Path $winExePath) -or (Test-Path (Join-Path $root "Windows\dist\YTDown
     Write-Host "[FAIL] Windows build not found" -ForegroundColor Red
 }
 
-$apkFile = Get-ChildItem (Join-Path $root "Android\bin\*.apk") -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($apkFile) {
-    Write-Host "Moving Android APK..."
-    Copy-Item -Path $apkFile.FullName -Destination (Join-Path $outputDir $apkFile.Name) -Force
-    Write-Host "[OK] Android APK copied" -ForegroundColor Green
-} else {
-    Write-Host "[WARN] Android APK not found" -ForegroundColor Yellow
-}
-
 Write-Host ""
 
 # ===== CLEANUP BUILD ARTIFACTS =====
-Write-Host "[5/5] Cleaning up build artifacts..." -ForegroundColor Yellow
+Write-Host "[4/4] Cleaning up build artifacts..." -ForegroundColor Yellow
 
 $cleanupDirs = @(
     (Join-Path $root "Windows\dist"),
-    (Join-Path $root "Windows\build"),
-    (Join-Path $root "Android\.buildozer"),
-    (Join-Path $root "Android\bin"),
-    (Join-Path $root "Android\build"),
-    (Join-Path $root "Android\dist")
+    (Join-Path $root "Windows\build")
 )
 
 foreach ($dir in $cleanupDirs) {

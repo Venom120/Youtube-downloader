@@ -20,7 +20,7 @@ export const VideoCard: React.FC<Props> = ({
 }) => {
   const infoParts = [video.channel];
   if (video.viewCount) {
-    infoParts.push(`${formatViews(video.viewCount)} views`);
+    infoParts.push(`${formatViews(video.viewCount)}`);
   }
 
   return (

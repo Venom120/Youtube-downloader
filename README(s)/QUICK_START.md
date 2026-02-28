@@ -1,153 +1,363 @@
-# Quick Start Guide - New YouTube Downloader
+# Quick Start Guide - YouTube Downloader
 
-This guide will get you up and running with the new YouTube Downloader in minutes.
+Get started with the YouTube Downloader in minutes! Choose your platform:
 
-## 🚀 Windows Quick Start
+## 📋 Table of Contents
 
-### 1. Install Python (if not already installed)
-- Download Python 3.8+ from https://python.org
-- During installation, check "Add Python to PATH"
+- [Windows Desktop App](#-windows-desktop-app) (Standalone)
+- [Mobile App (Android/iOS)](#-mobile-app-androidios) (Requires Backend Server)
+- [Setup Backend Server](#step-1-setup-backend-server)
+- [Setup Mobile App](#step-2-setup-mobile-app)
 
-### 2. Install Dependencies
-Open Command Prompt or PowerShell in the `Windows` folder:
+---
+
+## 🖥️ Windows Desktop App
+
+The Windows app is **standalone** - no server required!
+
+### Prerequisites
+- Windows 10 or later
+- Python 3.10+ (with pip)
+
+### Installation
+
+1. **Install Python** (if not already installed)
+   - Download from https://python.org
+   - ✅ Check "Add Python to PATH" during installation
+
+2. **Install Dependencies**
+   
+   Open PowerShell or Command Prompt:
+   ```powershell
+   cd Windows
+   pip install -r requirements.txt
+   ```
+
+3. **Install FFmpeg** (Optional, for MP3 downloads)
+   - Download from https://ffmpeg.org/download.html
+   - Extract and add to PATH
+   - Or use chocolatey: `choco install ffmpeg`
+
+### Running the App
 
 ```powershell
 cd Windows
-pip install -r requirements.txt
-```
-
-### 3. Run the Application
-```powershell
 python main.py
 ```
 
-### 4. Start Using
+### Usage
 
-**To Search for Videos**:
-1. Type a search query in the top search bar (e.g., "python tutorial")
-2. Click 🔍 Search
-3. Browse video cards and click MP4 or MP3 to download
+**Search for Videos**:
+1. Type search query in the search bar (e.g., "python tutorial")
+2. Click 🔍 Search button
+3. Browse results as video cards
 
-**To Download from URL**:
-1. Copy a YouTube video or playlist URL
-2. Paste in the search bar
-3. The video will appear as a card
+**Download Video**:
+1. Find your video in the search results
+2. Click **MP4** button for video download
+3. Click **MP3** button for audio-only (requires FFmpeg)
+4. Watch progress bar for download status
+
+**Direct URL Download**:
+1. Copy YouTube video URL
+2. Paste in search bar
+3. Video appears as a card
 4. Click MP4 or MP3 to download
 
-**To Browse a Playlist**:
-1. Search for or paste a playlist URL
-2. Click the playlist title to see all videos
-3. Download individual videos or use the playlist card to download all
-
-Downloads go to: `C:\Users\YourName\Downloads\`
+**Downloads Location**: `C:\Users\YourName\Downloads\`
 
 ---
 
-## 📱 React Native (Expo) Quick Start
+## 📱 Mobile App (Android/iOS)
 
-### 1. Install Dependencies
+The mobile app uses a **client-server architecture**:
+- **Backend Server**: Handles downloads using yt-dlp
+- **Mobile App**: React Native UI connects to backend
+
+### Step 1: Setup Backend Server
+
+You need a running backend server first. Choose an option:
+
+### Step 1: Setup Backend Server
+
+You need a running backend server first. Choose an option:
+
+#### Option A: Docker (Recommended - Easiest)
+
+**Prerequisites**: Docker and Docker Compose installed
+
 ```bash
-cd Android/React-Native
-yarn install
+# Navigate to backend directory
+cd Android/Python
+
+# Start server with docker-compose
+docker-compose up -d
+
+# Check if running
+docker ps
 ```
 
-### 2. Run the Expo App
+Server running at: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
+
+#### Option B: Manual Setup (Development)
+
+**Prerequisites**: Python 3.11+, FFmpeg installed
+
 ```bash
-npx expo start
+# Navigate to backend directory
+cd Android/Python
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file
+echo "DOWNLOAD_DIR=/app/downloads" > .env
+echo "ALLOWED_APP_ID=com.venom120.ytdownloader" >> .env
+
+# Run server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 3. Download Locations
-- Final files: `/storage/emulated/0/Download/YTDownloader/`
-- Temporary files: app cache directory
+#### Option C: Cloud Deployment (Production)
+
+Deploy to your preferred cloud platform:
+
+**Heroku**:
+```bash
+heroku create ytdownloader-api
+heroku config:set ALLOWED_APP_ID=com.venom120.ytdownloader
+git push heroku main
+```
+
+**DigitalOcean/AWS/Other VPS**:
+1. Setup VPS with Docker
+2. Clone repository
+3. Run `docker-compose up -d`
+4. Configure firewall for port 8000
+5. Setup domain and SSL certificate
+
+### Step 2: Setup Mobile App
+
+#### Prerequisites
+- Node.js 20+
+- npm or yarn
+- Backend server running
+
+#### Installation
+
+1. **Navigate to React Native directory**:
+   ```bash
+   cd Android/React-Native
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. **Configure backend connection**:
+   
+   Create `.env` file in `Android/React-Native/`:
+   ```env
+   # For local testing (use your computer's IP, not localhost)
+   BACKEND_URL=http://192.168.1.100:8000
+   WS_URL=ws://192.168.1.100:8000
+   APP_ID=com.venom120.ytdownloader
+   
+   # For production
+   # BACKEND_URL=https://your-domain.com
+   # WS_URL=wss://your-domain.com
+   # APP_ID=com.venom120.ytdownloader
+   ```
+   
+   **Finding your IP**:
+   - Windows: `ipconfig` → Look for IPv4 Address
+   - Mac/Linux: `ifconfig` or `ip addr` → Look for inet address
+
+4. **Start the app**:
+   ```bash
+   npx expo start
+   ```
+
+5. **Run on device**:
+   - Scan QR code with Expo Go app (Android/iOS)
+   - Or press `a` for Android emulator
+   - Or press `i` for iOS simulator (Mac only)
+
+#### Usage
+
+**Search for Videos**:
+1. Open the app
+2. Type search query in search bar
+3. Tap search button
+4. Browse video cards
+
+**Download Video**:
+1. Find your video
+2. Tap **MP4** for video or **MP3** for audio
+3. Watch real-time progress updates
+4. File saves to: `/storage/emulated/0/Download/YTDownloader/` (Android)
+
+**Grant Permissions**:
+- On first download, allow storage permission
+- Required for saving files to device
 
 ---
 
-## 📱 Android (Kivy) Quick Start
+## 🎯 Tips & Tricks
 
-### 1. Prerequisites
-- Linux or WSL2 (for building APK)
-- Python 3.8+
-- Java JDK 8 or 11
-- Android SDK
+### For All Platforms
 
-### 2. Install Buildozer
-```bash
-pip install buildozer
-pip install cython
-```
+**Search Tips**:
+- Use specific keywords for better results
+- Paste YouTube URLs directly
+- Search for playlists too
 
-### 3. Navigate to Android Folder
-```bash
-cd Android
-```
+**Download Tips**:
+- MP4 downloads video with audio
+- MP3 downloads audio only (requires FFmpeg on backend)
+- Check file size before downloading
+- Internet connection required throughout download
 
-### 4. Build APK
+### For Windows
 
-**First time** (downloads dependencies, takes 30+ minutes):
-```bash
-buildozer android debug
-```
+**Performance**:
+- Downloads are single-threaded per video
+- Multiple videos can download simultaneously
+- Progress updates in real-time
 
-**Subsequent builds**:
-```bash
-buildozer android debug
-```
+**Troubleshooting**:
+- If MP3 doesn't work: Install FFmpeg
+- If search fails: Check internet connection
+- If app slow: Close and restart
 
-### 5. Install on Device
+### For Mobile
 
-Connect your Android device via USB and enable USB debugging:
+**Network**:
+- Backend must be accessible from your device
+- Use local IP for testing, domain for production
+- WebSocket connection required for progress
 
-```bash
-adb install bin/YTDownloader-*.apk
-```
+**Battery**:
+- Keep app in foreground during downloads
+- Background downloads may pause
+- Consider downloading on Wi-Fi
 
-Or transfer the APK file from `Android/bin/` folder to your phone and install manually.
-
-### 6. Grant Permissions
-
-On first launch:
-- Allow **Storage** permission (to save downloads)
-- Allow **Internet** permission (automatic)
-
-Downloads go to: `/storage/emulated/0/Download/`
+**Storage**:
+- Check available storage before large downloads
+- Grant storage permission when prompted
+- Files save to Downloads folder
 
 ---
 
-## 🎨 UI Overview
+## 🔍 Testing Your Setup
 
-### Main Screen
+### Test Windows App
 
+1. Run `python main.py`
+2. Search for "test video"
+3. Try downloading a short video
+4. Check downloads folder for file
+
+### Test Backend Server
+
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
+
+# Test search (with authentication)
+curl -X POST http://localhost:8000/api/search \
+  -H "Content-Type: application/json" \
+  -H "X-App-Id: com.venom120.ytdownloader" \
+  -d '{"query": "test", "maxResults": 5}'
+
+# View API documentation
+# Open browser: http://localhost:8000/docs
 ```
-┌─────────────────────────────────────────┐
-│  📺 YouTube Downloader                  │  ← Header
-├─────────────────────────────────────────┤
-│  [Search YouTube or paste URL...] [🔍] │  ← Search Bar
-├─────────────────────────────────────────┤
-│  ← Back    |  Status: Found 10 results  │  ← Navigation
-├─────────────────────────────────────────┤
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  │
-│  │ Video 1 │  │ Video 2 │  │ Video 3 │  │  ← Video Cards
-│  │  [MP4]  │  │  [MP4]  │  │  [MP4]  │  │    (responsive grid)
-│  │  [MP3]  │  │  [MP3]  │  │  [MP3]  │  │
-│  └─────────┘  └─────────┘  └─────────┘  │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  │
-│  │ Video 4 │  │ Video 5 │  │ Video 6 │  │
-│  └─────────┘  └─────────┘  └─────────┘  │
-└─────────────────────────────────────────┘
-```
 
-### Video Card Detail
+### Test Mobile App
 
-```
-┌──────────────────────────────┐
-│      [Thumbnail Image]       │  ← Video thumbnail
-│         📑 5 videos           │  ← Badge (playlist/duration)
-├──────────────────────────────┤
-│  Video Title Goes Here...    │  ← Clickable title (if playlist)
-│  Channel Name • 1.2M views   │  ← Channel & views
-├──────────────────────────────┤
-│   [📥 MP4]     [🎵 MP3]      │  ← Download buttons
-│   ▓▓▓▓▓░░░░░░░░░░   45%     │  ← Progress (when downloading)
+1. Ensure backend is running
+2. Start Expo app
+3. Check connection status in app
+4. Try searching for videos
+5. Test a small download
+
+---
+
+## 🐛 Common Issues
+
+### Windows Issues
+
+**"python not found"**:
+- Install Python and add to PATH
+- Restart terminal after installing
+
+**"Module not found"**:
+- Run `pip install -r requirements.txt`
+- Check you're in the Windows directory
+
+**"FFmpeg not found"**:
+- Install FFmpeg from ffmpeg.org
+- Add to system PATH
+- Restart terminal
+
+### Backend Issues
+
+**"Port 8000 already in use"**:
+- Stop other applications using port 8000
+- Or change port in docker-compose.yml
+
+**"FFmpeg not found in container"**:
+- Dockerfile includes FFmpeg
+- Rebuild container: `docker-compose build --no-cache`
+
+**"Database/connection error"**:
+- Check Docker is running
+- Restart containers: `docker-compose restart`
+
+### Mobile Issues
+
+**"Cannot connect to server"**:
+- Check backend is running
+- Use IP address, not `localhost`
+- Ensure device on same network (for local testing)
+- Check firewall settings
+
+**"Authentication failed"**:
+- Verify APP_ID matches backend configuration
+- Check .env file is properly loaded
+
+**"WebSocket connection failed"**:
+- Verify WS_URL is correct  
+- Check backend WebSocket endpoint is working
+- Try reconnecting
+
+**"Storage permission denied"**:
+- Grant storage permission in Android settings
+- Restart app after granting permission
+
+---
+
+## 📚 Next Steps
+
+- **Learn More**: Read the [main README](../README.md)
+- **Build Apps**: See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md)
+- **Deploy Backend**: Check [Android/Python/README.md](../Android/Python/README.md)
+- **Technical Details**: Read [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
+
+---
+
+**Need Help?** 
+- Check documentation
+- Review error messages
+- Open GitHub issue with details
+
+**Happy Downloading!** 🎉
 └──────────────────────────────┘
 ```
 

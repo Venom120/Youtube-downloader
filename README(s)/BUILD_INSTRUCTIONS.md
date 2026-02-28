@@ -1,152 +1,495 @@
 # Build Instructions
 
-This directory contains PowerShell build scripts for creating Windows EXE and Android APK distributions of the YouTube Downloader application.
+This document provides instructions for building all components of the YouTube Downloader project:
+- **Windows Desktop App** - Standalone executable
+- **Backend API Server** - Docker container
+- **React Native Mobile App** - Android APK and iOS IPA
 
-## Quick Start
+## Project Architecture
 
-### Build Everything (Windows + Android)
+The project uses a dual architecture:
+- **Windows**: Standalone desktop app (no server required)
+- **Mobile**: Client-server architecture (React Native app + FastAPI backend)
+
+## 📦 Build All Components
+
+### Quick Build Script
 
 ```powershell
-# From the root directory
+# From the root directory (Windows)
 .\build_all.ps1
 ```
 
-This will:
-1. Build Windows EXE with PyInstaller
-2. Build Android APK with Buildozer
-3. Clean up build artifacts
-4. Move all output files to a new `build_output_YYYY-MM-DD_HH-MM-SS` folder
+This will build:
+1. Windows EXE with PyInstaller
+2. Backend Docker image
+3. React Native APK (if EAS configured)
 
-### Build Windows Only
+Output will be organized in `build_output_YYYY-MM-DD_HH-MM-SS/`
+
+## Prerequisites
+
+### Windows Desktop App
+- Python 3.10+
+- pip and virtual environment
+- PyInstaller (installed automatically)
+- Dependencies from `Windows/requirements.txt`
+
+### Backend Server
+- Docker and Docker Compose (recommended)
+- OR Python 3.11+ with pip
+- FFmpeg installed
+
+### React Native Mobile App
+- Node.js 20+
+- npm or yarn
+- Expo CLI
+- EAS CLI (for production builds)
+- Expo account for cloud builds
+
+## 🖥️ Build Windows Desktop App
+
+### Using Build Script (Recommended)
 
 ```powershell
-# From the Windows directory
 cd Windows
 .\build_windows.ps1
 ```
 
-Output: `Windows\dist\YTDownloader\`
+### Manual Build
 
-### Build Android Only
+1. **Create Virtual Environment**:
+   ```powershell
+   cd Windows
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   ```
 
-```powershell
-# From the Android directory
-cd Android
-.\build_android.ps1
+2. **Install Dependencies**:
+   ```powershell
+   pip install -r requirements.txt
+   pip install pyinstaller
+   ```
+
+3. **Build Executable**:
+   ```powershell
+   python -m PyInstaller main.spec
+   ```
+
+4. **Output**:
+   - Located in `Windows/dist/YTDownloader/`
+   - Contains `YTDownloader.exe` and all dependencies
+   - Distribute entire folder as ZIP
+
+## 🔧 Build Backend Server
+
+### Using Docker (Recommended)
+
+```bash
+cd Android/Python
+
+# Build image
+docker build -t ytdownloader-backend:latest .
+
+# Or use docker-compose
+docker-compose build
 ```
 
-Output: `Android\bin\*.apk`
+### Manual Setup
 
-## Prerequisites
+```bash
+cd Android/Python
+pip install -r requirements.txt
 
-### Windows Build
-- Python 3.8+ with pip
-- Virtual environment (created automatically)
-- Dependencies from `Windows/requirements.txt` (installed automatically)
-- PyInstaller (installed automatically)
+# Run server
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-### Android Build
-- Python 3.8+
-- Java JDK 11+ (in PATH)
-- Android SDK (configured in buildozer.spec)
-- Windows or Linux with buildozer support
+### Deploy to Registry
 
-For Windows users: Android building is challenging due to Java/Android SDK setup. Consider using Linux (WSL2) or macOS for Android builds.
+```bash
+# Tag for registry
+docker tag ytdownloader-backend:latest your-registry/ytdownloader-backend:latest
+
+# Push to Docker Hub
+docker push your-registry/ytdownloader-backend:latest
+```
+
+## 📱 Build React Native Mobile App
+
+### Development Build
+
+```bash
+cd Android/React-Native
+
+# Install dependencies
+npm install
+
+# Start development server
+npx expo start
+```
+
+### Production Build with EAS
+
+1. **Setup EAS (First Time)**:
+   ```bash
+   npm install -g eas-cli
+   eas login
+   eas build:configure
+   ```
+
+2. **Configure `.env`**:
+   ```env
+   BACKEND_URL=https://your-backend-server.com
+   WS_URL=wss://your-backend-server.com
+   APP_ID=com.venom120.ytdownloader
+   ```
+
+3. **Build Android APK**:
+   ```bash
+   # Development build
+   eas build --platform android --profile development
+   
+   # Production build
+   eas build --platform android --profile production
+   ```
+
+4. **Build iOS IPA**:
+   ```bash
+   eas build --platform ios --profile production
+   ```
+
+5. **Download Builds**:
+   ```bash
+   eas build:list
+   # Download from Expo dashboard or CLI
+   ```
+
+### Local Build (Android Only)
+
+```bash
+# Generate native code
+npx expo prebuild
+
+# Build APK locally (requires Android SDK)
+cd android
+./gradlew assembleRelease
+
+# Output: android/app/build/outputs/apk/release/app-release.apk
+```
 
 ## Output Structure
 
-When running `build_all.ps1`, the output directory structure will be:
+After building all components:
 
 ```
 build_output_YYYY-MM-DD_HH-MM-SS/
-├── YTDownloader_Windows/          # Windows application folder
-│   ├── YTDownloader.exe           # Main executable
-│   ├── _internal/                 # Python runtime and libraries
-│   └── assets/                    # Icons and resources
-└── youtube_downloader-*.apk       # Android APK file
+├── Windows/
+│   └── YTDownloader/              # Windows application folder
+│       ├── YTDownloader.exe       # Main executable
+│       ├── _internal/             # Python runtime and libraries
+│       └── assets/                # Icons and resources
+│
+├── Backend/
+│   └── ytdownloader-backend.tar   # Docker image (if exported)
+│
+└── Mobile/
+    ├── android-*.apk              # Android APK
+    └── ios-*.ipa                  # iOS IPA (if built)
 ```
+
+## 🚀 Distribution
+
+### Windows Desktop App
+
+1. **Package for Distribution**:
+   ```powershell
+   # Create ZIP archive
+   Compress-Archive -Path Windows/dist/YTDownloader -DestinationPath YTDownloader-Windows.zip
+   ```
+
+2. **User Installation**:
+   - Extract ZIP to any location
+   - Run `YTDownloader.exe`
+   - No Python installation required
+
+### Backend Server
+
+1. **Docker Image**:
+   ```bash
+   # Export image
+   docker save ytdownloader-backend:latest > ytdownloader-backend.tar
+   
+   # On target server
+   docker load < ytdownloader-backend.tar
+   docker-compose up -d
+   ```
+
+2. **Cloud Deployment**:
+   - Push to Docker Hub/GitHub Container Registry
+   - Deploy to VPS, AWS, DigitalOcean, etc.
+   - Configure environment variables
+   - Setup SSL/HTTPS with reverse proxy
+
+### React Native Mobile App
+
+1. **Android APK**:
+   - Direct distribution (sideloading)
+   - Or publish to Google Play Store
+
+2. **iOS IPA**:
+   - TestFlight for beta testing
+   - Or publish to Apple App Store
+
+3. **App Store Submission**:
+   ```bash
+   # Submit to stores via EAS
+   eas submit --platform android
+   eas submit --platform ios
+   ```
 
 ## Troubleshooting
 
 ### Windows Build Issues
-- **PyInstaller errors**: Run `pip install --upgrade pyinstaller`
-- **Missing dependencies**: Run `pip install -r Windows/requirements.txt`
-- **Icon not found**: Ensure `Windows/assets/Youtube_icon.ico` exists
 
-### Android Build Issues
-- **Java not found**: Install Java JDK 11+ and add to PATH
-  ```powershell
-  # Verify Java is in PATH
-  java -version
-  ```
-- **Build hangs**: Check `.buildozer/android/platform/build-*/build.log`
-- **NDK/SDK errors**: Update buildozer:
-  ```powershell
-  pip install --upgrade buildozer cython
-  ```
+**PyInstaller Errors**:
+```powershell
+# Update PyInstaller
+pip install --upgrade pyinstaller
 
-### For WSL2 Users (Linux on Windows)
-Android builds work better on Linux. Install WSL2 and run:
-```bash
-cd /mnt/d/Github/Youtube-downloader
-./build_all.sh  # (create a similar .sh script)
+# Clear cache and rebuild
+rmdir /s /q build dist
+python -m PyInstaller main.spec --clean
 ```
 
-## Distribution
+**Missing Dependencies**:
+```powershell
+pip install --upgrade -r requirements.txt
+```
 
-After building:
+**Icon Not Found**:
+- Ensure `Windows/assets/Youtube_icon.ico` exists
+- Check path in `main.spec`
 
-### Windows
-1. The `YTDownloader_Windows` folder contains the complete application
-2. Users can run `YTDownloader.exe` directly (no installation needed)
-3. Package as ZIP for distribution
+### Backend Build Issues
 
-### Android
-1. Sign the APK if needed before distribution:
-   ```powershell
-   jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore my-release-key.keystore *.apk alias_name
-   ```
-2. Upload to Google Play Store or distribute directly
+**Docker Build Fails**:
+```bash
+# Check Docker is running
+docker --version
+
+# Clean Docker cache
+docker system prune -a
+
+# Rebuild without cache
+docker-compose build --no-cache
+```
+
+**FFmpeg Not Found**:
+```bash
+# In Dockerfile, FFmpeg install is included
+# If manual install needed:
+# Ubuntu/Debian:
+apt-get install ffmpeg
+
+# macOS:
+brew install ffmpeg
+```
+
+**Port Already in Use**:
+```bash
+# Change port in docker-compose.yml
+ports:
+  - "8001:8000"  # Use different host port
+```
+
+### React Native Build Issues
+
+**EAS Build Fails**:
+```bash
+# Check EAS configuration
+eas build:configure
+
+# View build logs
+eas build:list
+eas build:view BUILD_ID
+
+# Clear credentials
+eas credentials --clear-provisioning-profile
+```
+
+**Environment Variables Not Loading**:
+```bash
+# Ensure .env file exists in Android/React-Native/
+# Check @env import in config.ts
+# Rebuild app after changing .env
+```
+
+**Expo Prebuild Issues**:
+```bash
+# Clean and regenerate
+rm -rf android ios
+npx expo prebuild --clean
+```
+
+**Android Gradle Build Fails**:
+```bash
+cd android
+
+# Clean build
+./gradlew clean
+
+# Rebuild
+./gradlew assembleRelease
+
+# Check Java version (needs JDK 11 or 17)
+java -version
+```
+
+### General Issues
+
+**yt-dlp Errors**:
+```bash
+# Update to latest version
+pip install --upgrade yt-dlp
+```
+
+**Network/Proxy Issues**:
+```bash
+# Set proxy in environment
+export HTTP_PROXY=http://proxy:port
+export HTTPS_PROXY=https://proxy:port
+```
+
+**Disk Space**:
+```bash
+# Check available space
+df -h
+
+# Clean Docker
+docker system prune -a --volumes
+```
 
 ## Cleanup
 
-The scripts automatically clean up build artifacts (dist/, build/, .buildozer/) to save space.
+The build scripts automatically clean up artifacts to save space.
 
-To manually clean:
+### Manual Cleanup
+
+**Windows**:
 ```powershell
-# Windows
+# Clean build artifacts
 Remove-Item Windows/dist -Recurse -Force
 Remove-Item Windows/build -Recurse -Force
-
-# Android
-Remove-Item Android/.buildozer -Recurse -Force
-Remove-Item Android/bin -Recurse -Force
-Remove-Item Android/dist -Recurse -Force
+Remove-Item Windows/__pycache__ -Recurse -Force
 ```
 
-## Environment Variables
+**Backend**:
+```bash
+# Clean Docker
+docker-compose down
+docker system prune -a
 
-You can customize builds with environment variables:
-
-```powershell
-# For Android builds, specify API level
-$env:ANDROID_API_LEVEL = "31"
-
-# For Windows, specify output name
-# (inherited from main.spec)
+# Clean Python cache
+find . -type d -name "__pycache__" -exec rm -rf {} +
 ```
 
-## Dependencies Versions
+**React Native**:
+```bash
+cd Android/React-Native
 
-See the latest versions in:
-- `Windows/requirements.txt` - Windows app dependencies
-- `Android/requirements.txt` - Android app dependencies
-- Windows/main.spec - PyInstaller configuration
-- Android/buildozer.spec - Buildozer configuration
+# Clean dependencies
+rm -rf node_modules
+
+# Clean native builds
+rm -rf android ios
+
+# Clean Expo cache
+npx expo start -c
+```
+
+## Environment Configuration
+
+### Development Environment Variables
+
+**Backend** (`Android/Python/.env`):
+```env
+ALLOWED_APP_ID=com.venom120.ytdownloader
+DOWNLOAD_DIR=/app/downloads
+DEBUG=true
+```
+
+**React Native** (`Android/React-Native/.env`):
+```env
+# Local development
+BACKEND_URL=http://192.168.1.xxx:8000  # Your local IP
+WS_URL=ws://192.168.1.xxx:8000
+APP_ID=com.venom120.ytdownloader
+
+# Production
+# BACKEND_URL=https://your-domain.com
+# WS_URL=wss://your-domain.com
+```
+
+### Production Environment Variables
+
+Update production values before building release versions:
+- Use HTTPS/WSS URLs in production
+- Configure proper domain names
+- Set appropriate security tokens
+- Enable production optimizations
+
+## Continuous Integration
+
+### GitHub Actions
+
+The project includes CI/CD workflows:
+
+**.github/workflows/build-windows.yml**:
+- Builds Windows EXE on push
+- Uploads artifacts
+- Creates releases
+
+**.github/workflows/build-backend.yml**:
+- Builds Docker image
+- Pushes to registry
+- Deploys to server
+
+**.github/workflows/build-mobile.yml**:
+- Runs EAS builds
+- Publishes to app stores (when configured)
 
 ## Notes
 
-- First build takes longer (downloading SDKs, building dependencies)
-- Subsequent builds are faster for Windows (cached deps)
+- **First build takes longer**: Downloads dependencies, SDKs, etc.
+- **Subsequent builds faster**: Cached dependencies
+- **Backend requires FFmpeg**: Included in Docker image
+- **Mobile needs backend running**: Configure BACKEND_URL correctly
+- **Windows standalone**: No server required
+
+## Dependencies Versions
+
+Current versions (check files for latest):
+- Python: 3.11+
+- Node.js: 20+
+- Expo SDK: 52
+- React Native: 0.76.x
+- FastAPI: 0.115.x
+- yt-dlp: Latest available
+
+## Support
+
+For build issues:
+1. Check this troubleshooting guide
+2. Review error messages carefully
+3. Check GitHub Issues
+4. Create new issue with build logs
+
+---
+
+**Related Documentation**:
+- [README.md](../README.md) - Project overview
+- [QUICK_START.md](QUICK_START.md) - Quick start guide
+- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Technical details
 - Android builds each time may take 10-30 minutes depending on system
 - Output files can be large (~200MB+ for Android)

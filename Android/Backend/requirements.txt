@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+websockets
+yt-dlp
+pydantic
+python-multipart
+aiofiles
+python-dotenv

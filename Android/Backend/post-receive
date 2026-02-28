@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Define directories
+GIT_DIR="/home/ubuntu/YTDownloader.git"
+TARGET_DIR="/home/ubuntu/YTDownloader"
+COMPOSE_DIR="/home/ubuntu/YTDownloader/Python"
+
+# --- 1. Checkout latest code from the bare repo ---
+echo "Deploying latest code changes..."
+
+# Checkout backend files
+git --work-tree="${TARGET_DIR}" --git-dir="${GIT_DIR}" checkout --force main -- Android/Python
+
+
+echo "Code deployed successfully."
+echo ""
+
+# --- 2. Rebuild and restart services using Docker Compose ---
+echo "Building and restarting Docker containers..."
+
+# Navigate to the directory with docker-compose.yml and run it
+cd "${COMPOSE_DIR}" || exit
+docker compose up -d --build --remove-orphans
+
+echo "Deployment complete."

@@ -69,34 +69,6 @@ if (python -c "import customtkinter; print('ok')" -ErrorAction SilentlyContinue)
 
 Write-Host ""
 
-# ===== ANDROID BUILD TOOLS =====
-Write-Host "[5] Android Build Dependencies" -ForegroundColor Yellow
-
-# Check Java
-if (Get-Command java -ErrorAction SilentlyContinue) {
-    $javaVersion = java -version 2>&1 | Select-String "version" | Select-Object -First 1
-    Write-Host "OK Java: $javaVersion" -ForegroundColor Green
-} else {
-    Write-Host "WARN Java not found (required for Android builds)" -ForegroundColor Yellow
-    Write-Host "  Download: https://www.oracle.com/java/technologies/downloads/#java11" -ForegroundColor Gray
-}
-
-# Check buildozer
-if (python -c "import buildozer; print('ok')" -ErrorAction SilentlyContinue) {
-    Write-Host "OK Buildozer installed" -ForegroundColor Green
-} else {
-    Write-Host "WARN Buildozer not installed (will be installed during Android build)" -ForegroundColor Yellow
-}
-
-# Check cython
-if (python -c "import cython; print('ok')" -ErrorAction SilentlyContinue) {
-    Write-Host "OK Cython installed" -ForegroundColor Green
-} else {
-    Write-Host "WARN Cython not installed (will be installed with buildozer)" -ForegroundColor Yellow
-}
-
-Write-Host ""
-
 # ===== PROJECT STRUCTURE =====
 Write-Host "[6] Project Structure" -ForegroundColor Yellow
 
@@ -104,10 +76,6 @@ $requiredFiles = @(
     "Windows/main.py",
     "Windows/main.spec",
     "Windows/requirements.txt",
-    "Android/main.py",
-    "Android/main.kv",
-    "Android/buildozer.spec",
-    "Android/requirements.txt",
     "tests/test_ui_and_core.py"
 )
 
@@ -139,10 +107,5 @@ if ($allGood) {
 
 Write-Host ""
 Write-Host ""
-Write-Host ""
-
-Write-Host "For full builds, you also need:" -ForegroundColor Yellow
-Write-Host "  1. Java JDK 11+ - https://www.oracle.com/java/technologies/downloads/" -ForegroundColor Gray
-Write-Host "  2. Android SDK - Configured in Android/buildozer.spec" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Full documentation: See BUILD_INSTRUCTIONS.md" -ForegroundColor Cyan

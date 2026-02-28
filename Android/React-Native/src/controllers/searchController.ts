@@ -1,5 +1,5 @@
 import { SearchResult, VideoInfo } from "../models/videoModel";
-import { YTDLPWrapper } from "../services/ytdlpWrapper";
+import { YTDLPWrapper } from "../services/ytdlWrapper-server";
 
 export class SearchController {
   private ytdlp: YTDLPWrapper;
