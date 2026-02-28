@@ -6,7 +6,7 @@ COMPOSE_DIR="/opt/docker-stack/"
 echo "Deploying latest changes..."
 
 # Checkout backend files
-git --work-tree="${TARGET_DIR}" --git-dir="${GIT_DIR}" checkout --force main -- Android/Python
+git --work-tree="${TARGET_DIR}" --git-dir="${GIT_DIR}" checkout --force main -- Android/Backend
 
 # Navigate to the directory with docker-compose.yml and run it
 cd "${COMPOSE_DIR}" || exit
