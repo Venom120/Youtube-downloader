@@ -6,9 +6,9 @@ from fastapi.responses import FileResponse
 import os
 from dotenv import load_dotenv
 
-from app.routes import youtube
-from app.routes.websocket import manager
-from app.middleware.auth import AppIDMiddleware
+from routes import youtube
+from routes.websocket import manager
+from middleware.auth import AppIDMiddleware
 
 # Load environment variables
 load_dotenv()
