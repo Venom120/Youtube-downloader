@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep deploy hooks Linux-executable even on Windows
+Android/Backend/post-receive text eol=lf
