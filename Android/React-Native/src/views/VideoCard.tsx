@@ -24,11 +24,6 @@ export const VideoCard: React.FC<Props> = ({
   }
 
   const resolvedProgress = progress;
-  
-  // Debug: Log thumbnail rendering
-  console.log(`[DEBUG] VideoCard render - Video: ${video.videoId}`);
-  console.log(`[DEBUG] VideoCard render - Thumbnail URL: ${video.thumbnailUrl}`);
-  console.log(`[DEBUG] VideoCard render - Has thumbnailUrl: ${!!video.thumbnailUrl}`);
 
   return (
     <View style={styles.card}>
@@ -37,12 +32,6 @@ export const VideoCard: React.FC<Props> = ({
           <Image 
             source={{ uri: video.thumbnailUrl }} 
             style={styles.thumbnail}
-            onError={(error) => {
-              console.log(`[DEBUG] Image load error for ${video.videoId}:`, error.nativeEvent.error);
-            }}
-            onLoad={() => {
-              console.log(`[DEBUG] Image loaded successfully for ${video.videoId}`);
-            }}
           />
         ) : (
           <View style={styles.thumbnailPlaceholder} />

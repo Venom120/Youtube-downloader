@@ -239,34 +239,20 @@ export default function App() {
       if (isUrl(query) && isPlaylistUrl(query)) {
         await searchController.getPlaylistVideos(
           query,
-          (results) => {
-            console.log('[DEBUG] Playlist videos received:', results.length);
-            results.forEach((v, i) => console.log(`[DEBUG] Video ${i}: thumbnailUrl =${v.thumbnailUrl}`));
-            setVideos(results);
-          },
+          (results) => setVideos(results),
           (err) => showToast(err, "#F44336", 3200)
         );
       } else if (isUrl(query)) {
         await searchController.getVideoInfo(
           query,
-          (info) => {
-            if (info) {
-              console.log('[DEBUG] Video info received:', info.videoId);
-              console.log('[DEBUG] Thumbnail URL:', info.thumbnailUrl);
-            }
-            setVideos(info ? [info] : []);
-          },
+          (info) => setVideos(info ? [info] : []),
           (err) => showToast(err, "#F44336", 3200)
         );
       } else {
         await searchController.searchVideos(
           query,
           20,
-          (result) => {
-            console.log('[DEBUG] Search results received:', result.videos.length);
-            result.videos.forEach((v, i) => console.log(`[DEBUG] Video ${i} (${v.videoId}): thumbnailUrl = ${v.thumbnailUrl}`));
-            setVideos(result.videos);
-          },
+          (result) => setVideos(result.videos),
           (err) => showToast(err, "#F44336", 3200)
         );
       }

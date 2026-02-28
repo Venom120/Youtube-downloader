@@ -14,6 +14,24 @@ DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "/app/downloads")
 COOKIES_FILE = os.getenv("COOKIES_FILE", "/app/cookies/cookies.txt")
 Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
+# Debug: Check if cookies file exists
+if os.path.exists(COOKIES_FILE):
+    file_size = os.path.getsize(COOKIES_FILE)
+    print(f"[✓] Cookies file found: {COOKIES_FILE} ({file_size} bytes)")
+else:
+    print(f"[!] Cookies file NOT found: {COOKIES_FILE}")
+    print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
+    print(f"[!] Some videos may be unavailable or blocked")
+
+# Debug: Check if cookies file exists
+if os.path.exists(COOKIES_FILE):
+    file_size = os.path.getsize(COOKIES_FILE)
+    print(f"[✓] Cookies file found: {COOKIES_FILE} ({file_size} bytes)")
+else:
+    print(f"[✗] Cookies file NOT found: {COOKIES_FILE}")
+    print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
+    print(f"[!] Some videos may be unavailable or blocked")
+
 
 class YTDLPService:
     """
@@ -47,7 +65,10 @@ class YTDLPService:
             
             # Add cookies if file exists
             if os.path.exists(COOKIES_FILE):
-                ydl_opts["cookiefile"] = COOKIES_FILE
+                print(f"[✓] Using cookies for search: {COOKIES_FILE}")
+                ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+            else:
+                print(f"[!] No cookies file found for search - running in guest mode")
 
             def _search():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
@@ -101,7 +122,10 @@ class YTDLPService:
             
             # Add cookies if file exists
             if os.path.exists(COOKIES_FILE):
-                ydl_opts["cookiefile"] = COOKIES_FILE
+                print(f"[✓] Using cookies for video info: {COOKIES_FILE}")
+                ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+            else:
+                print(f"[!] No cookies file found for video info - running in guest mode")
 
             def _get_info():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
@@ -214,15 +238,18 @@ class YTDLPService:
             else:  # mp4
                 ydl_opts = {
                     "format": "best[ext=mp4][height<=720]/best[ext=mp4]/best",
-                 
-            
-            # Add cookies if file exists
-            if os.path.exists(COOKIES_FILE):
-                ydl_opts["cookiefile"] = COOKIES_FILE   "outtmpl": filepath,
+                    "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
+            
+            # Add cookies if file exists
+            if os.path.exists(COOKIES_FILE):
+                print(f"[✓] Using cookies for download: {COOKIES_FILE}")
+                ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+            else:
+                print(f"[!] No cookies file found for download - running in guest mode")
 
             # Initialize download status
             self.active_downloads[download_id] = {
