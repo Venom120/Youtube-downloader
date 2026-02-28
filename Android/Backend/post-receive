@@ -1,6 +1,6 @@
 #!/bin/bash
-TARGET_DIR=~/YTDownloader  # Path to your working directory
-GIT_DIR=~/YTDownloader.git  # Path to your bare repository
+TARGET_DIR=/home/ubuntu/YTDownloader  # Path to your working directory
+GIT_DIR=/home/ubuntu/YTDownloader.git  # Path to your bare repository
 COMPOSE_DIR="/opt/docker-stack/"
 
 echo "Deploying latest changes..."
