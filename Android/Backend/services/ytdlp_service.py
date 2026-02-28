@@ -15,6 +15,15 @@ DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "/app/downloads")
 COOKIES_FILE = os.getenv("COOKIES_FILE", "/app/cookies/cookies.txt")
 Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
+def _extract_thumbnail_url(entry) -> str:
+    """Extract the best thumbnail URL from yt-dlp entry."""
+    thumbnails = entry.get("thumbnails", [])
+    if thumbnails and isinstance(thumbnails, list):
+        last_thumbnail = thumbnails[-1]
+        if isinstance(last_thumbnail, dict):
+            return last_thumbnail.get("url", "")
+    return entry.get("thumbnail", "")
+
 # Debug: Check if cookies file exists
 if os.path.exists(COOKIES_FILE):
     file_size = os.path.getsize(COOKIES_FILE)
@@ -71,6 +80,7 @@ class YTDLPService:
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": True,
+                "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
             }
             
             # Add cookies if file exists
@@ -92,12 +102,7 @@ class YTDLPService:
                     for entry in info["entries"]:  # type: ignore
                         if entry:
                             video_id = entry.get("id", "")
-                            thumbnail_url = entry.get("thumbnail", "")
-                            
-                            # Debug: Log thumbnail URL
-                            print(f"[DEBUG] Video ID: {video_id}")
-                            print(f"[DEBUG] Thumbnail URL: {thumbnail_url}")
-                            print(f"[DEBUG] Available thumbnail keys: {[k for k in entry.keys() if 'thumb' in k.lower()]}")
+                            thumbnail_url = _extract_thumbnail_url(entry)
                             
                             videos.append({
                                 "videoId": video_id,
@@ -128,6 +133,7 @@ class YTDLPService:
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
+                "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
             }
             
             # Add cookies if file exists
@@ -145,14 +151,7 @@ class YTDLPService:
                         return None
                     
                     video_id = info.get("id", "")
-                    thumbnail_url = info.get("thumbnail", "")
-                    
-                    # Debug: Log thumbnail URL and available keys
-                    print(f"[DEBUG] get_video_info - Video ID: {video_id}")
-                    print(f"[DEBUG] get_video_info - Thumbnail URL: {thumbnail_url}")
-                    print(f"[DEBUG] get_video_info - Available thumbnail keys: {[k for k in info.keys() if 'thumb' in k.lower()]}")
-                    if 'thumbnails' in info:
-                        print(f"[DEBUG] get_video_info - Thumbnails array: {info.get('thumbnails', [])}")
+                    thumbnail_url = _extract_thumbnail_url(info)
                     
                     return {
                         "videoId": video_id,
@@ -243,6 +242,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
+                    "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             else:  # mp4
@@ -251,6 +251,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
+                    "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             
