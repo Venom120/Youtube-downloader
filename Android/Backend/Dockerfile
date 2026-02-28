@@ -6,12 +6,15 @@ WORKDIR /app
 # Install system dependencies for yt-dlp
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir "yt-dlp[default]"
 
 # Copy application code
 COPY . .
@@ -19,6 +22,12 @@ COPY . .
 # Create downloads and cookies directories
 RUN mkdir -p /app/downloads
 RUN mkdir -p /app/cookies
+
+# Create yt-dlp config to enable Node.js for JavaScript challenges
+RUN mkdir -p /root/.config/yt-dlp && \
+    echo "# yt-dlp configuration" > /root/.config/yt-dlp/config && \
+    echo "# Enable Node.js for EJS (JavaScript challenge solving)" >> /root/.config/yt-dlp/config && \
+    echo "--js-runtimes node" >> /root/.config/yt-dlp/config
 
 # Expose port
 EXPOSE 8000

@@ -1,6 +1,7 @@
 import yt_dlp
 import os
 import uuid
+import subprocess
 from typing import Dict, List, Optional, Callable
 from pathlib import Path
 import asyncio
@@ -22,6 +23,15 @@ else:
     print(f"[!] Cookies file NOT found: {COOKIES_FILE}")
     print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
     print(f"[!] Some videos may be unavailable or blocked")
+
+# Debug: Check if Node.js (JavaScript runtime) is available
+try:
+    node_version = subprocess.check_output(["node", "--version"], text=True).strip()
+    print(f"[✓] Node.js JavaScript runtime found: {node_version}")
+except (subprocess.CalledProcessError, FileNotFoundError):
+    print(f"[!] Node.js NOT found - yt-dlp cannot solve YouTube JavaScript challenges")
+    print(f"[!] Install Node.js for full YouTube support")
+
 
 # Debug: Check if cookies file exists
 if os.path.exists(COOKIES_FILE):
