@@ -82,11 +82,11 @@ services:
 
   ytdownloader:
     build:
-      context: /home/ubuntu/YTDownloader/Backend
+      context: /home/ubuntu/YTDownloader/Android/Backend
       dockerfile: DOCKERFILE
     container_name: ytdownloader
     env_file:
-      - /home/ubuntu/YTDownloader/Backend/.env
+      - /home/ubuntu/YTDownloader/Android/Backend/.env
     volumes:
       - ./app:/app/app
       - ./downloads:/app/downloads
