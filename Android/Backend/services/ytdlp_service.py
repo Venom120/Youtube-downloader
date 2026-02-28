@@ -80,7 +80,7 @@ class YTDLPService:
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": True,
-                "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
+                "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
             }
             
             # Add cookies if file exists
@@ -133,7 +133,7 @@ class YTDLPService:
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
-                "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
+                "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
             }
             
             # Add cookies if file exists
@@ -242,7 +242,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
+                    "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             else:  # mp4
@@ -251,7 +251,7 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": ["node"],  # Enable Node.js for JavaScript execution
+                    "js_runtimes": {"node": {}},  # Enable Node.js for JavaScript execution
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             
