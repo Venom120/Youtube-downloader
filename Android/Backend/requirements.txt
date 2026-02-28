@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 websockets
-yt-dlp
+yt-dlp[default]
 pydantic
 python-multipart
 aiofiles

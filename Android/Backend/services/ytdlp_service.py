@@ -19,37 +19,68 @@ def _extract_thumbnail_url(entry) -> str:
     """Extract the best thumbnail URL from yt-dlp entry."""
     thumbnails = entry.get("thumbnails", [])
     if thumbnails and isinstance(thumbnails, list):
-        last_thumbnail = thumbnails[-1]
-        if isinstance(last_thumbnail, dict):
-            return last_thumbnail.get("url", "")
+        first_thumbnail = thumbnails[0]
+        if isinstance(first_thumbnail, dict):
+            return first_thumbnail.get("url", "")
     return entry.get("thumbnail", "")
 
-# Debug: Check if cookies file exists
+# Validate cookies file format
+def validate_cookie_file(cookie_path: str) -> tuple[bool, str]:
+    """
+    Validate if cookie file exists and is in correct Netscape format.
+    Returns: (is_valid, message)
+    """
+    if not os.path.exists(cookie_path):
+        return False, "Cookie file not found"
+    
+    try:
+        with open(cookie_path, 'r', encoding='utf-8') as f:
+            first_line = f.readline().strip()
+            # Netscape format should start with # Netscape HTTP Cookie File or have tab-separated values
+            if first_line.startswith('#') or '\t' in first_line:
+                return True, "Cookie file format looks valid"
+            else:
+                return False, "Cookie file may not be in Netscape format. Export cookies using browser extension in Netscape format."
+    except Exception as e:
+        return False, f"Error reading cookie file: {e}"
+
+# Debug: Check if cookies file exists and validate format
+print("\\n" + "="*60)
+print("COOKIE VALIDATION")
+print("="*60)
 if os.path.exists(COOKIES_FILE):
     file_size = os.path.getsize(COOKIES_FILE)
     print(f"[✓] Cookies file found: {COOKIES_FILE} ({file_size} bytes)")
-else:
-    print(f"[!] Cookies file NOT found: {COOKIES_FILE}")
-    print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
-    print(f"[!] Some videos may be unavailable or blocked")
-
-# Debug: Check if Deno (JavaScript runtime) is available
-try:
-    deno_version = subprocess.check_output(["deno", "--version"], text=True).strip()
-    print(f"[✓] Deno JavaScript runtime found: {deno_version}")
-except (subprocess.CalledProcessError, FileNotFoundError):
-    print(f"[!] Deno NOT found - yt-dlp cannot solve YouTube JavaScript challenges")
-    print(f"[!] Install Deno for full YouTube support")
-
-
-# Debug: Check if cookies file exists
-if os.path.exists(COOKIES_FILE):
-    file_size = os.path.getsize(COOKIES_FILE)
-    print(f"[✓] Cookies file found: {COOKIES_FILE} ({file_size} bytes)")
+    
+    is_valid, msg = validate_cookie_file(COOKIES_FILE)
+    if is_valid:
+        print(f"[✓] {msg}")
+    else:
+        print(f"[!] WARNING: {msg}")
+        print(f"[!] Cookie file must be in Netscape format (not Chrome JSON)")
+        print(f"[!] Use browser extension like 'Get cookies.txt' or 'cookies.txt'")
+        print(f"[!] Export from your browser AFTER logging into YouTube")
 else:
     print(f"[✗] Cookies file NOT found: {COOKIES_FILE}")
     print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
-    print(f"[!] Some videos may be unavailable or blocked")
+    print(f"[!] Some videos may be age-restricted or unavailable")
+    print(f"[!] To fix: Export YouTube cookies in Netscape format to {COOKIES_FILE}")
+print("="*60 + "\\n")
+
+# Debug: Check if Deno (JavaScript runtime) is available
+print("="*60)
+print("JAVASCRIPT RUNTIME CHECK")
+print("="*60)
+try:
+    deno_version = subprocess.check_output(["deno", "--version"], text=True).strip()
+    print(f"[✓] Deno JavaScript runtime found:")
+    for line in deno_version.split('\\n'):
+        print(f"    {line}")
+except (subprocess.CalledProcessError, FileNotFoundError):
+    print(f"[✗] Deno NOT found - yt-dlp cannot solve YouTube JavaScript challenges")
+    print(f"[!] Install Deno: curl -fsSL https://deno.land/install.sh | sh")
+    print(f"[!] This is required for modern YouTube access")
+print("="*60 + "\\n")
 
 
 class YTDLPService:
@@ -80,7 +111,13 @@ class YTDLPService:
                 "quiet": True,
                 "no_warnings": True,
                 "extract_flat": True,
-                "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
+                # Add YouTube-specific extractor arguments for better compatibility
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["ios", "web"],  # Use iOS and web clients for better compatibility
+                        "skip": ["hls", "dash"],  # Skip unnecessary formats for faster extraction
+                    }
+                },
             }
             
             # Add cookies if file exists
@@ -133,7 +170,13 @@ class YTDLPService:
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
-                "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
+                # Add YouTube-specific extractor arguments
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["ios", "web"],  # iOS client is most reliable with cookies
+                        "skip": ["dash"],  # Skip DASH for faster extraction
+                    }
+                },
             }
             
             # Add cookies if file exists
@@ -242,7 +285,12 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
+                    # Add YouTube-specific extractor arguments
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["ios", "web"],  # iOS client most reliable with cookies
+                        }
+                    },
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             else:  # mp4
@@ -251,7 +299,12 @@ class YTDLPService:
                     "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
-                    "js_runtimes": {"deno": {}},  # Enable Deno for JavaScript execution (recommended)
+                    # Add YouTube-specific extractor arguments
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["ios", "web"],  # iOS client most reliable with cookies
+                        }
+                    },
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],
                 }
             
