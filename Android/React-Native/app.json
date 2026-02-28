@@ -55,7 +55,10 @@
         {
           "photosPermission": "Allow YTDownloader to save downloaded videos"
         }
-      ]      
+      ],
+      "./plugins/addLocalMavenRepo.js",
+      "./plugins/setArchitectures.js",
+      "@kesha-antonov/react-native-background-downloader"
     ],
     "extra": {
       "eas": {

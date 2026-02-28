@@ -23,11 +23,27 @@ export const VideoCard: React.FC<Props> = ({
     infoParts.push(`${formatViews(video.viewCount)}`);
   }
 
+  const resolvedProgress = progress;
+  
+  // Debug: Log thumbnail rendering
+  console.log(`[DEBUG] VideoCard render - Video: ${video.videoId}`);
+  console.log(`[DEBUG] VideoCard render - Thumbnail URL: ${video.thumbnailUrl}`);
+  console.log(`[DEBUG] VideoCard render - Has thumbnailUrl: ${!!video.thumbnailUrl}`);
+
   return (
     <View style={styles.card}>
       <View style={styles.thumbnailWrapper}>
         {video.thumbnailUrl ? (
-          <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} />
+          <Image 
+            source={{ uri: video.thumbnailUrl }} 
+            style={styles.thumbnail}
+            onError={(error) => {
+              console.log(`[DEBUG] Image load error for ${video.videoId}:`, error.nativeEvent.error);
+            }}
+            onLoad={() => {
+              console.log(`[DEBUG] Image loaded successfully for ${video.videoId}`);
+            }}
+          />
         ) : (
           <View style={styles.thumbnailPlaceholder} />
         )}
@@ -60,12 +76,12 @@ export const VideoCard: React.FC<Props> = ({
             <Text style={styles.buttonText}>MP3</Text>
           </TouchableOpacity>
         </View>
-        {progress !== undefined ? (
+        {resolvedProgress !== undefined ? (
           <View style={styles.progressRow}>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.min(progress, 100)}%` }]} />
+              <View style={[styles.progressFill, { width: `${Math.min(Math.max(resolvedProgress, 0), 100)}%` }]} />
             </View>
-            <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+            <Text style={styles.progressText}>{Math.round(resolvedProgress || 0)}%</Text>
           </View>
         ) : null}
       </View>

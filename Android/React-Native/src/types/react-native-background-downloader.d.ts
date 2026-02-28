@@ -1,4 +1,4 @@
-declare module 'react-native-background-downloader' {
+declare module '@kesha-antonov/react-native-background-downloader' {
   export interface DownloadTask {
     id: string;
     url: string;

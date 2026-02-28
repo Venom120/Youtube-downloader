@@ -57,20 +57,41 @@ class ConnectionManager:
                 msg_data = message.get("data", {})
 
                 if msg_type == "subscribe":
-                    await self.subscribe(websocket, msg_data.get("downloadId"))
+                    try:
+                        await self.subscribe(websocket, msg_data.get("downloadId"))
+                    except Exception as e:
+                        print(f"[WebSocket] Error in subscribe: {e}")
+                        await self.send_message(websocket, {"type": "error", "data": {"message": str(e)}})
                 elif msg_type == "unsubscribe":
-                    await self.unsubscribe(websocket, msg_data.get("downloadId"))
+                    try:
+                        await self.unsubscribe(websocket, msg_data.get("downloadId"))
+                    except Exception as e:
+                        print(f"[WebSocket] Error in unsubscribe: {e}")
+                        await self.send_message(websocket, {"type": "error", "data": {"message": str(e)}})
                 elif msg_type == "resume_download":
-                    await self.handle_resume(websocket, msg_data.get("downloadId"))
+                    try:
+                        await self.handle_resume(websocket, msg_data.get("downloadId"))
+                    except Exception as e:
+                        print(f"[WebSocket] Error in resume_download: {e}")
+                        await self.send_message(websocket, {"type": "error", "data": {"message": str(e)}})
                 elif msg_type == "cancel_download":
-                    await self.handle_cancel(websocket, msg_data.get("downloadId"))
+                    try:
+                        await self.handle_cancel(websocket, msg_data.get("downloadId"))
+                    except Exception as e:
+                        print(f"[WebSocket] Error in cancel_download: {e}")
+                        await self.send_message(websocket, {"type": "error", "data": {"message": str(e)}})
                 else:
                     print(f"[WebSocket] Unknown message type: {msg_type}")
+                    await self.send_message(websocket, {"type": "error", "data": {"message": f"Unknown message type: {msg_type}"}})
 
             except WebSocketDisconnect:
                 raise
             except Exception as e:
                 print(f"[WebSocket] Error handling message: {e}")
+                try:
+                    await self.send_message(websocket, {"type": "error", "data": {"message": str(e)}})
+                except Exception as send_err:
+                    print(f"[WebSocket] Failed to send error message back to client: {send_err}")
 
     async def subscribe(self, websocket: WebSocket, download_id: str):
         """Subscribe websocket to download progress updates"""

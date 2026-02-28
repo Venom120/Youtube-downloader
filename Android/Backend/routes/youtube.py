@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from fastapi.responses import FileResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import os
 
 from models.schemas import (
@@ -15,34 +17,37 @@ from models.schemas import (
 from services.ytdlp_service import ytdlp_service
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/search", response_model=SearchResult)
-async def search_videos(request: SearchRequest):
+@limiter.limit("30/minute")
+async def search_videos(request_body: SearchRequest, request: Request):
     """
     Search for YouTube videos
     """
     try:
-        videos_dict = await ytdlp_service.search_videos(request.query, request.maxResults)
+        videos_dict = await ytdlp_service.search_videos(request_body.query, request_body.maxResults)
         videos = [VideoInfo(**video) for video in videos_dict]
         
         return SearchResult(
             videos=videos,
-            query=request.query,
+            query=request_body.query,
             page=1,
-            hasMore=len(videos) >= request.maxResults,
+            hasMore=len(videos) >= request_body.maxResults,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
 @router.post("/video-info", response_model=VideoInfo)
-async def get_video_info(request: VideoInfoRequest):
+@limiter.limit("50/minute")
+async def get_video_info(request_body: VideoInfoRequest, request: Request):
     """
     Get information about a specific video
     """
     try:
-        video_info = await ytdlp_service.get_video_info(request.url)
+        video_info = await ytdlp_service.get_video_info(request_body.url)
         
         if not video_info:
             raise HTTPException(status_code=404, detail="Video not found")
@@ -55,7 +60,8 @@ async def get_video_info(request: VideoInfoRequest):
 
 
 @router.post("/download", response_model=DownloadResponse)
-async def initiate_download(request: DownloadRequest, background_tasks: BackgroundTasks):
+@limiter.limit("20/minute")
+async def initiate_download(request_body: DownloadRequest, request: Request, background_tasks: BackgroundTasks):
     """
     Initiate video download
     Returns download ID and URL for client to download the file
@@ -63,8 +69,8 @@ async def initiate_download(request: DownloadRequest, background_tasks: Backgrou
     try:
         # Start download asynchronously
         download_info = await ytdlp_service.download_video(
-            request.url,
-            request.format,
+            request_body.url,
+            request_body.format,
         )
         
         return DownloadResponse(**download_info)

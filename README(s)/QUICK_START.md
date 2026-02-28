@@ -138,6 +138,73 @@ git push heroku main
 4. Configure firewall for port 8000
 5. Setup domain and SSL certificate
 
+---
+
+### Step 1.5: Cookie Authentication (Optional - Recommended)
+
+**Why use cookies?**
+- Access age-restricted content
+- Higher rate limits (2000 vs 300 videos/hour)
+- Better download reliability
+
+#### Quick Cookie Setup
+
+**1. Install Browser Extension**
+
+Choose based on your browser:
+- **Edge/Chrome**: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore)
+- **Firefox**: [cookies.txt](https://addons.mozilla.org/firefox/)
+
+**2. Export Cookies**
+
+```powershell
+# Open browser in private mode
+# Edge (Windows)
+msedge.exe -inprivate https://www.youtube.com
+
+# Chrome
+chrome.exe --incognito https://www.youtube.com
+```
+
+- Login to YouTube
+- Click the browser extension icon
+- Export as `cookies.txt`
+
+**3. Verify Cookie Format**
+
+First line must be:
+```
+# Netscape HTTP Cookie File
+```
+
+**4. Upload to Server**
+
+```bash
+# Local development
+cp cookies.txt Android/Backend/cookies/
+
+# Production EC2
+scp cookies.txt ubuntu@YOUR_EC2_IP:/home/ubuntu/YTDownloader/Android/Backend/cookies/
+
+# Set permissions on EC2
+ssh ubuntu@YOUR_EC2_IP
+chmod 600 /home/ubuntu/YTDownloader/Android/Backend/cookies/cookies.txt
+```
+
+**5. Restart Backend**
+
+```bash
+# Docker
+docker-compose restart ytdownloader
+
+# Manual
+# Ctrl+C and re-run uvicorn command
+```
+
+**📚 Detailed Guide**: See [Backend README - Cookie Authentication](../Android/Backend/README.md#-cookie-authentication-setup-recommended)
+
+---
+
 ### Step 2: Setup Mobile App
 
 #### Prerequisites

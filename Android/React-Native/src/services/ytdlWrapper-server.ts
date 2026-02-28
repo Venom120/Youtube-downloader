@@ -1,6 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import RNBackgroundDownloader from "react-native-background-downloader";
+import RNBackgroundDownloader from "@kesha-antonov/react-native-background-downloader";
 import { VideoInfo, SearchResult } from "../models/videoModel";
 import {
   YouTubeAPI,
@@ -32,6 +32,7 @@ export class YTDLPWrapper {
   // Track download progress callbacks
   private progressCallbacks: Map<string, (progress: number) => void> = new Map();
   private completeCallbacks: Map<string, (filename: string) => void> = new Map();
+  private errorCallbacks: Map<string, (error: string) => void> = new Map();
   
   private isWebSocketConnected: boolean = false;
 
@@ -105,6 +106,14 @@ export class YTDLPWrapper {
     // Handle download errors
     wsClient.on(WS_EVENTS.DOWNLOAD_ERROR, (data: DownloadErrorData) => {
       console.error(`[Wrapper] Download error for ${data.downloadId}:`, data.error);
+      const errorCallback = this.errorCallbacks.get(data.downloadId);
+      if (errorCallback) {
+        try {
+          errorCallback(data.error);
+        } catch (callbackError) {
+          console.error(`[Wrapper] Error callback failed for ${data.downloadId}:`, callbackError);
+        }
+      }
       
       // Cleanup failed download
       this.cleanupDownload(data.downloadId);
@@ -126,6 +135,7 @@ export class YTDLPWrapper {
     // Remove callbacks
     this.progressCallbacks.delete(downloadId);
     this.completeCallbacks.delete(downloadId);
+    this.errorCallbacks.delete(downloadId);
     
     // Unsubscribe from WebSocket updates
     wsClient.unsubscribeFromDownload(downloadId);
@@ -338,7 +348,8 @@ export class YTDLPWrapper {
     url: string,
     formatType: "mp4" | "mp3",
     progressCallback?: (progress: number) => void,
-    completeCallback?: (filename: string) => void
+    completeCallback?: (filename: string) => void,
+    errorCallback?: (error: string) => void
   ): Promise<boolean> {
     try {
       if (!this.cachePath) {
@@ -363,6 +374,9 @@ export class YTDLPWrapper {
       }
       if (completeCallback) {
         this.completeCallbacks.set(downloadInfo.downloadId, completeCallback);
+      }
+      if (errorCallback) {
+        this.errorCallbacks.set(downloadInfo.downloadId, errorCallback);
       }
 
       // Subscribe to WebSocket updates

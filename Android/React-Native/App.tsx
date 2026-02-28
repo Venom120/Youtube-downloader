@@ -24,17 +24,17 @@ import { SearchController } from "./src/controllers/searchController";
 import { VideoInfo } from "./src/models/videoModel";
 import { VideoCard } from "./src/views/VideoCard";
 import { DownloadsList } from "./src/views/DownloadsList";
+import { ToastHost, showToast } from "./src/utils/toast";
 
 const isUrl = (value: string): boolean => /^https?:\/\//i.test(value.trim());
 const isPlaylistUrl = (value: string): boolean => /[?&]list=/.test(value);
 
-const SAF_STORAGE_KEY = '@ytdownloader_saf_uri';
+const SAF_STORAGE_KEY = '@venom120_ytdownloader_saf_uri';
 
 export default function App() {
   const [query, setQuery] = useState("");
   const [videos, setVideos] = useState<VideoInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [downloadPath, setDownloadPath] = useState<string>("");
   const [cachePath, setCachePath] = useState<string>("");
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
@@ -102,7 +102,7 @@ export default function App() {
               return true;
             }
 
-            setError("Storage permission denied. Cannot save to external Download folder.");
+            showToast("Storage permission denied. Cannot save to external Download folder.", "#F44336", 3500);
             return false;
           } catch (e) {
             console.warn("Error requesting Android storage permissions", e);
@@ -185,7 +185,7 @@ export default function App() {
 
         if (!cacheDir || !cacheDir.uri) {
           console.error("No cache directory available");
-          setError("File system cache not ready. Please try again.");
+          showToast("File system cache not ready. Please try again.", "#F44336", 3500);
           return;
         }
 
@@ -198,13 +198,15 @@ export default function App() {
           setIsReady(true);
         } else {
           console.error('No SAF directory selected — downloads disabled.');
-          setError('Please choose a destination folder when prompted so downloads can be saved (SAF).');
+          showToast('Please choose a destination folder when prompted so downloads can be saved (SAF).', '#F44336', 4000);
           return;
         }
       } catch (err) {
         console.error("initDownloadDir failed:", err);
-        setError(
-          "Failed to initialize download directory. Build the APK for production use: `eas build` or `expo build`."
+        showToast(
+          "Failed to initialize download directory.",
+          "#F44336",
+          3500
         );
       }
     };
@@ -231,28 +233,41 @@ export default function App() {
     }
 
     setLoading(true);
-    setError(null);
     setVideos([]);
 
     try {
       if (isUrl(query) && isPlaylistUrl(query)) {
         await searchController.getPlaylistVideos(
           query,
-          (results) => setVideos(results),
-          (err) => setError(err)
+          (results) => {
+            console.log('[DEBUG] Playlist videos received:', results.length);
+            results.forEach((v, i) => console.log(`[DEBUG] Video ${i}: thumbnailUrl =${v.thumbnailUrl}`));
+            setVideos(results);
+          },
+          (err) => showToast(err, "#F44336", 3200)
         );
       } else if (isUrl(query)) {
         await searchController.getVideoInfo(
           query,
-          (info) => setVideos(info ? [info] : []),
-          (err) => setError(err)
+          (info) => {
+            if (info) {
+              console.log('[DEBUG] Video info received:', info.videoId);
+              console.log('[DEBUG] Thumbnail URL:', info.thumbnailUrl);
+            }
+            setVideos(info ? [info] : []);
+          },
+          (err) => showToast(err, "#F44336", 3200)
         );
       } else {
         await searchController.searchVideos(
           query,
           20,
-          (result) => setVideos(result.videos),
-          (err) => setError(err)
+          (result) => {
+            console.log('[DEBUG] Search results received:', result.videos.length);
+            result.videos.forEach((v, i) => console.log(`[DEBUG] Video ${i} (${v.videoId}): thumbnailUrl = ${v.thumbnailUrl}`));
+            setVideos(result.videos);
+          },
+          (err) => showToast(err, "#F44336", 3200)
         );
       }
     } finally {
@@ -262,7 +277,7 @@ export default function App() {
 
   const startDownload = async (video: VideoInfo, formatType: "mp4" | "mp3") => {
     if (!isReady || !downloadControllerRef.current) {
-      setError("Download system is initializing. Please wait...");
+      showToast("Download system is initializing. Please wait...", "#F44336", 2800);
       return;
     }
 
@@ -287,13 +302,19 @@ export default function App() {
           ...prev,
           [key]: 100,
         }));
+        showToast(`${formatType.toUpperCase()} download completed`, "#4CAF50", 2200);
         // Update downloads list
         if (downloadControllerRef.current) {
           setDownloads([...downloadControllerRef.current.getAllDownloads()]);
         }
       },
       (err) => {
-        setError(err);
+        setDownloadProgress((prev) => {
+          const updated = { ...prev };
+          delete updated[key];
+          return updated;
+        });
+        showToast(err || "Download failed", "#F44336", 3500);
         // Update downloads list
         if (downloadControllerRef.current) {
           setDownloads([...downloadControllerRef.current.getAllDownloads()]);
@@ -325,8 +346,37 @@ export default function App() {
   const handleCancel = (downloadId: string) => {
     if (!downloadControllerRef.current) return;
 
+    const task = downloadControllerRef.current.getDownload(downloadId);
+    if (task) {
+      const progressKey = `${task.video.videoId}-${task.formatType}`;
+      setDownloadProgress((prev) => {
+        const updated = { ...prev };
+        delete updated[progressKey];
+        return updated;
+      });
+    }
+
     downloadControllerRef.current.cancelDownload(downloadId);
     setDownloads([...downloadControllerRef.current.getAllDownloads()]);
+    showToast("Download cancelled", "#757575", 1800);
+  };
+
+  const handleClear = (downloadId: string) => {
+    if (!downloadControllerRef.current) return;
+
+    const task = downloadControllerRef.current.getDownload(downloadId);
+    if (task) {
+      const progressKey = `${task.video.videoId}-${task.formatType}`;
+      setDownloadProgress((prev) => {
+        const updated = { ...prev };
+        delete updated[progressKey];
+        return updated;
+      });
+    }
+
+    downloadControllerRef.current.clearDownload(downloadId);
+    setDownloads([...downloadControllerRef.current.getAllDownloads()]);
+    showToast("Download cleared", "#607D8B", 1500);
   };
 
   const handleChangeSafDirectory = async () => {
@@ -355,15 +405,14 @@ export default function App() {
         if (cachePath) {
           downloadControllerRef.current = new DownloadController(newSafUri, cachePath, true);
           setIsReady(true);
-          setError(null);
-          Alert.alert('Success', 'Download folder updated successfully');
+          showToast('Download folder updated successfully', '#4CAF50', 2200);
         }
       } else {
         console.log('User cancelled SAF directory selection');
       }
     } catch (e) {
       console.error('Failed to change SAF directory:', e);
-      Alert.alert('Error', 'Failed to change download folder');
+      showToast('Failed to change download folder', '#F44336', 2800);
     }
   };
 
@@ -401,12 +450,14 @@ export default function App() {
             placeholderTextColor="#6b6b6b"
             style={styles.searchInput}
             editable={!loading}
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
+            blurOnSubmit={true}
           />
           <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={loading}>
             <Text style={styles.searchButtonText}>Search</Text>
           </TouchableOpacity>
         </View>
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {!isReady && downloadPath === "" ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color="#ffffff" />
@@ -421,10 +472,27 @@ export default function App() {
         ) : null}
         <ScrollView contentContainerStyle={styles.results}>
           {videos.map((video) => {
-            const mp4Key = `${video.videoId}-mp4`;
-            const mp3Key = `${video.videoId}-mp3`;
-            const progress = downloadProgress[mp4Key] ?? downloadProgress[mp3Key];
-            const disabled = !isReady || (progress !== undefined && progress < 100);
+            const videoDownloads = downloads.filter((task) => task.video.videoId === video.videoId);
+            const activeDownload = videoDownloads.find((task) =>
+              ["queued", "downloading", "paused"].includes(task.status)
+            );
+            const latestDownload = videoDownloads.length > 0
+              ? videoDownloads[videoDownloads.length - 1]
+              : undefined;
+            const currentDownload = activeDownload || latestDownload;
+
+            const progress = currentDownload
+              ? currentDownload.status === "completed"
+                ? 100
+                : currentDownload.progress
+              : undefined;
+
+            const hasActiveDownload = downloads.some(
+              (task) =>
+                task.video.videoId === video.videoId &&
+                ["queued", "downloading", "paused"].includes(task.status)
+            );
+            const disabled = !isReady || hasActiveDownload;
             return (
               <VideoCard
                 key={video.videoId}
@@ -447,7 +515,9 @@ export default function App() {
           onClose={() => setShowDownloadsModal(false)}
           onPauseResume={handlePauseResume}
           onCancel={handleCancel}
+          onClear={handleClear}
         />
+        <ToastHost />
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -532,11 +602,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 8,
     fontSize: 12,
-  },
-  errorText: {
-    color: "#f87171",
-    paddingHorizontal: 20,
-    marginTop: 8,
   },
   loadingRow: {
     flexDirection: "row",

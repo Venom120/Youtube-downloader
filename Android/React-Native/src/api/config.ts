@@ -6,7 +6,8 @@ import { BACKEND_URL as ENV_BACKEND_URL, WS_URL as ENV_WS_URL, APP_ID as ENV_APP
  */
 
 // Backend server URL - Loaded from .env
-export const BACKEND_URL = ENV_BACKEND_URL || "http://localhost:8000";
+const RAW_BACKEND_URL = ENV_BACKEND_URL || "http://localhost:8000";
+export const BACKEND_URL = RAW_BACKEND_URL.replace(/\/+$/, "").replace(/\/api$/, "");
 export const WS_URL = ENV_WS_URL || "ws://localhost:8000";
 
 // App identifier for backend authentication - Loaded from .env

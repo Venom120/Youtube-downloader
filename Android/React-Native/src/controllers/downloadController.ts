@@ -59,6 +59,13 @@ export class DownloadController {
           task.status = "completed";
           completeCallback?.(filename);
         }
+      },
+      (backendError) => {
+        if (!task.cancelFlag) {
+          task.status = "error";
+          task.error = backendError || "Download failed";
+          errorCallback?.(task.error);
+        }
       }
     );
 
@@ -68,7 +75,7 @@ export class DownloadController {
         task.error = "Canceled";
       } else {
         task.status = "error";
-        task.error = "Download failed";
+        task.error = task.error || "Download failed";
         errorCallback?.(task.error);
       }
     }
@@ -121,5 +128,21 @@ export class DownloadController {
 
   getAllDownloads(): DownloadTask[] {
     return Array.from(this.allDownloads.values());
+  }
+
+  clearDownload(downloadId: string): boolean {
+    const task = this.allDownloads.get(downloadId);
+    if (!task) {
+      return false;
+    }
+
+    const canClear = ["completed", "canceled", "error"].includes(task.status);
+    if (!canClear) {
+      return false;
+    }
+
+    this.allDownloads.delete(downloadId);
+    this.downloadHistory = this.downloadHistory.filter((item) => item.downloadId !== downloadId);
+    return true;
   }
 }

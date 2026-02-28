@@ -7,12 +7,12 @@ import {
   StyleSheet,
   FlatList,
   Linking,
-  Alert,
 } from "react-native";
 import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { DownloadTask } from "../controllers/downloadController";
+import { showToast } from "../utils/toast";
 
 interface DownloadsListProps {
   visible: boolean;
@@ -21,6 +21,7 @@ interface DownloadsListProps {
   onClose: () => void;
   onPauseResume: (downloadId: string) => void;
   onCancel: (downloadId: string) => void;
+  onClear: (downloadId: string) => void;
 }
 
 export const DownloadsList: React.FC<DownloadsListProps> = ({
@@ -30,6 +31,7 @@ export const DownloadsList: React.FC<DownloadsListProps> = ({
   onClose,
   onPauseResume,
   onCancel,
+  onClear,
 }) => {
   const handleOpenFolder = async () => {
     try {
@@ -70,10 +72,11 @@ export const DownloadsList: React.FC<DownloadsListProps> = ({
         });
       } catch (err) {
         console.error('Could not open file manager:', err);
-        Alert.alert('Open folder failed', 'Cannot open the Downloads folder from the app. Please open your file manager manually.');
+        showToast('Open folder failed. Please open your file manager manually.', '#F44336', 3200);
       }
     } catch (error) {
       console.error("Could not open folder:", error);
+      showToast('Could not open folder', '#F44336', 2500);
     }
   };
   const getStatusColor = (status: string): string => {
@@ -118,6 +121,7 @@ export const DownloadsList: React.FC<DownloadsListProps> = ({
     const canInteract = ["downloading", "paused", "queued"].includes(
       item.status
     );
+    const canClear = ["completed", "error", "canceled"].includes(item.status);
 
     return (
       <View key={item.downloadId} style={styles.downloadItem}>
@@ -127,14 +131,24 @@ export const DownloadsList: React.FC<DownloadsListProps> = ({
               ? `${item.video.title.substring(0, 47)}...`
               : item.video.title}
           </Text>
-          <View style={styles.statusBadge}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: getStatusColor(item.status) },
-              ]}
-            />
-            <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+          <View style={styles.itemRightHeader}>
+            <View style={styles.statusBadge}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: getStatusColor(item.status) },
+                ]}
+              />
+              <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+            </View>
+            {canClear && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => onClear(item.downloadId)}
+              >
+                <Text style={styles.clearButtonText}>✕</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -315,6 +329,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
+  },
+  itemRightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  clearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#333333",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 14,
   },
   statusDot: {
     width: 8,

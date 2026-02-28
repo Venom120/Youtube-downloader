@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DOWNLOAD_DIR = os.getenv("DOWNLOAD_DIR", "/app/downloads")
+COOKIES_FILE = os.getenv("COOKIES_FILE", "/app/cookies/cookies.txt")
 Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 
@@ -43,6 +44,10 @@ class YTDLPService:
                 "no_warnings": True,
                 "extract_flat": True,
             }
+            
+            # Add cookies if file exists
+            if os.path.exists(COOKIES_FILE):
+                ydl_opts["cookiefile"] = COOKIES_FILE
 
             def _search():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
@@ -55,15 +60,23 @@ class YTDLPService:
                     videos = []
                     for entry in info["entries"]:  # type: ignore
                         if entry:
+                            video_id = entry.get("id", "")
+                            thumbnail_url = entry.get("thumbnail", "")
+                            
+                            # Debug: Log thumbnail URL
+                            print(f"[DEBUG] Video ID: {video_id}")
+                            print(f"[DEBUG] Thumbnail URL: {thumbnail_url}")
+                            print(f"[DEBUG] Available thumbnail keys: {[k for k in entry.keys() if 'thumb' in k.lower()]}")
+                            
                             videos.append({
-                                "videoId": entry.get("id", ""),
+                                "videoId": video_id,
                                 "title": entry.get("title", "Unknown"),
-                                "thumbnailUrl": entry.get("thumbnail", ""),
+                                "thumbnailUrl": thumbnail_url,
                                 "duration": entry.get("duration", 0),
                                 "channel": entry.get("channel", "Unknown"),
                                 "viewCount": entry.get("view_count", 0),
                                 "uploadDate": entry.get("upload_date", ""),
-                                "url": f"https://youtube.com/watch?v={entry.get('id', '')}",
+                                "url": f"https://youtube.com/watch?v={video_id}",
                             })
                     return videos
 
@@ -85,6 +98,10 @@ class YTDLPService:
                 "quiet": True,
                 "no_warnings": True,
             }
+            
+            # Add cookies if file exists
+            if os.path.exists(COOKIES_FILE):
+                ydl_opts["cookiefile"] = COOKIES_FILE
 
             def _get_info():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
@@ -93,10 +110,20 @@ class YTDLPService:
                     if not info:
                         return None
                     
+                    video_id = info.get("id", "")
+                    thumbnail_url = info.get("thumbnail", "")
+                    
+                    # Debug: Log thumbnail URL and available keys
+                    print(f"[DEBUG] get_video_info - Video ID: {video_id}")
+                    print(f"[DEBUG] get_video_info - Thumbnail URL: {thumbnail_url}")
+                    print(f"[DEBUG] get_video_info - Available thumbnail keys: {[k for k in info.keys() if 'thumb' in k.lower()]}")
+                    if 'thumbnails' in info:
+                        print(f"[DEBUG] get_video_info - Thumbnails array: {info.get('thumbnails', [])}")
+                    
                     return {
-                        "videoId": info.get("id", ""),
+                        "videoId": video_id,
                         "title": info.get("title", "Unknown"),
-                        "thumbnailUrl": info.get("thumbnail", ""),
+                        "thumbnailUrl": thumbnail_url,
                         "duration": info.get("duration", 0),
                         "channel": info.get("channel", "Unknown"),
                         "viewCount": info.get("view_count", 0),
@@ -187,7 +214,11 @@ class YTDLPService:
             else:  # mp4
                 ydl_opts = {
                     "format": "best[ext=mp4][height<=720]/best[ext=mp4]/best",
-                    "outtmpl": filepath,
+                 
+            
+            # Add cookies if file exists
+            if os.path.exists(COOKIES_FILE):
+                ydl_opts["cookiefile"] = COOKIES_FILE   "outtmpl": filepath,
                     "quiet": True,
                     "no_warnings": True,
                     "progress_hooks": [lambda d: self._progress_hook(d, download_id, progress_callback)],

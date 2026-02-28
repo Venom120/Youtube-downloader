@@ -140,6 +140,37 @@ The backend API will be available at `http://localhost:8000`
 - API docs: `http://localhost:8000/docs`
 - Health check: `http://localhost:8000/health`
 
+#### Step 1.5: Setup Cookie Authentication (Optional but Recommended)
+
+For better reliability and access to restricted content, configure YouTube cookies:
+
+**Quick Setup**:
+1. Export cookies from your browser using a browser extension:
+   - **Edge/Chrome**: Install "Get cookies.txt LOCALLY" extension
+   - **Firefox**: Install "cookies.txt" extension
+
+2. Open browser in **Incognito/Private mode** and login to YouTube
+
+3. Export cookies as `cookies.txt` (Netscape format)
+
+4. Copy to backend cookies folder:
+   ```bash
+   # Local development
+   cp cookies.txt Android/Backend/cookies/
+   
+   # Production (EC2)
+   scp cookies.txt ubuntu@YOUR_EC2_IP:/home/ubuntu/YTDownloader/Android/Backend/cookies/
+   ```
+
+5. Restart the backend server
+
+**Benefits**:
+- ✅ Access age-restricted and member-only content  
+- ✅ Higher rate limits (~2000 vs ~300 videos/hour)
+- ✅ Reduced throttling and better reliability
+
+**Detailed guide**: See [Backend Cookie Authentication](Android/Backend/README.md#-cookie-authentication-setup-recommended)
+
 #### Step 2: Configure & Run React Native App
 
 1. **Create `.env` file** in `Android/React-Native/`:

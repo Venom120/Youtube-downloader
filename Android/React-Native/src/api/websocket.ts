@@ -23,6 +23,10 @@ export type DownloadErrorData = {
   error: string;
 };
 
+export type WebSocketErrorData = {
+  message: string;
+};
+
 type EventCallback = (data: any) => void;
 
 /**
@@ -38,6 +42,11 @@ class WebSocketClient {
   private isIntentionalClose = false;
   private subscribedDownloads: Set<string> = new Set();
 
+  private buildWebSocketUrl(): string {
+    const sanitizedBase = WS_URL.replace(/\/+$/, "").replace(/\/ws$/, "");
+    return `${sanitizedBase}/ws?app_id=${encodeURIComponent(APP_ID)}`;
+  }
+
   /**
    * Connect to WebSocket server
    */
@@ -51,8 +60,8 @@ class WebSocketClient {
       console.log("[WebSocket] Connecting to:", WS_URL);
       this.isIntentionalClose = false;
       
-      // Include app ID in WebSocket connection URL
-      this.ws = new WebSocket(`${WS_URL}/ws?app_id=${APP_ID}`);
+      // Build a normalized ws URL (handles both WS_URL with and without trailing /ws)
+      this.ws = new WebSocket(this.buildWebSocketUrl());
 
       this.ws.onopen = () => {
         console.log("[WebSocket] Connected successfully");
@@ -72,6 +81,9 @@ class WebSocketClient {
           
           if (message.type && message.data) {
             this.emit(message.type, message.data);
+            if (message.type === "error" && message.data?.message) {
+              console.error("[WebSocket] Backend error:", message.data.message);
+            }
           }
         } catch (error) {
           console.error("[WebSocket] Failed to parse message:", error);
@@ -80,6 +92,7 @@ class WebSocketClient {
 
       this.ws.onerror = (error) => {
         console.error("[WebSocket] Error:", error);
+        this.emit("error", { message: "WebSocket connection error" });
       };
 
       this.ws.onclose = (event) => {

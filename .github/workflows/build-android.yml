@@ -2,9 +2,9 @@ name: React Native (Expo) Checks
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ android ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ android ]
   workflow_dispatch:
 
 jobs:
