@@ -28,7 +28,7 @@ services:
   ytdownloader:
     build:
       context: /home/ubuntu/YTDownloader/Android/Backend
-      dockerfile: DOCKERFILE
+      dockerfile: Dockerfile
     container_name: ytdownloader
     env_file:
       - /home/ubuntu/YTDownloader/Android/Backend/.env
