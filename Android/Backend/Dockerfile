@@ -34,9 +34,13 @@ RUN mkdir -p /root/.config/yt-dlp && \
     echo "# yt-dlp configuration" > /root/.config/yt-dlp/config && \
     echo "# Enable Deno for EJS (JavaScript challenge solving)" >> /root/.config/yt-dlp/config && \
     echo "--js-runtimes deno" >> /root/.config/yt-dlp/config
+# Copy and setup entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Use entrypoint script that validates cookies before starting
+ENTRYPOINT ["/app/entrypoint.sh"]

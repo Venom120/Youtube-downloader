@@ -24,10 +24,10 @@ def _extract_thumbnail_url(entry) -> str:
             return first_thumbnail.get("url", "")
     return entry.get("thumbnail", "")
 
-# Validate cookies file format
+# Validate cookies file format and YouTube authentication
 def validate_cookie_file(cookie_path: str) -> tuple[bool, str]:
     """
-    Validate if cookie file exists and is in correct Netscape format.
+    Validate if cookie file exists and contains YouTube authentication cookies.
     Returns: (is_valid, message)
     """
     if not os.path.exists(cookie_path):
@@ -35,12 +35,42 @@ def validate_cookie_file(cookie_path: str) -> tuple[bool, str]:
     
     try:
         with open(cookie_path, 'r', encoding='utf-8') as f:
-            first_line = f.readline().strip()
-            # Netscape format should start with # Netscape HTTP Cookie File or have tab-separated values
-            if first_line.startswith('#') or '\t' in first_line:
-                return True, "Cookie file format looks valid"
-            else:
-                return False, "Cookie file may not be in Netscape format. Export cookies using browser extension in Netscape format."
+            lines = f.readlines()
+            
+        # Check format
+        if not lines:
+            return False, "Cookie file is empty"
+        
+        first_line = lines[0].strip()
+        if not (first_line.startswith('#') or '\t' in first_line):
+            return False, "Cookie file may not be in Netscape format"
+        
+        # Check for critical YouTube authentication cookies
+        critical_cookies = ['SAPISID', 'SSID', '__Secure-1PSID', '__Secure-3PSID']
+        found_cookies = []
+        youtube_cookies = []
+        
+        for line in lines:
+            if line.strip() and not line.startswith('#'):
+                parts = line.split('\t')
+                if len(parts) >= 7:
+                    domain = parts[0]
+                    cookie_name = parts[5]
+                    
+                    # Check if it's a YouTube cookie
+                    if 'youtube.com' in domain or 'google.com' in domain:
+                        youtube_cookies.append(cookie_name)
+                        if cookie_name in critical_cookies:
+                            found_cookies.append(cookie_name)
+        
+        if not youtube_cookies:
+            return False, "⚠️ No YouTube/Google cookies found! You must be LOGGED IN to YouTube when exporting cookies."
+        
+        if not found_cookies:
+            return False, f"⚠️ Missing critical auth cookies ({', '.join(critical_cookies)}). Re-export cookies while logged into YouTube!"
+        
+        return True, f"✓ Valid format with {len(found_cookies)} auth cookies: {', '.join(found_cookies)}"
+        
     except Exception as e:
         return False, f"Error reading cookie file: {e}"
 
@@ -55,14 +85,24 @@ if os.path.exists(COOKIES_FILE):
     is_valid, msg = validate_cookie_file(COOKIES_FILE)
     if is_valid:
         print(f"[✓] {msg}")
+        print(f"[✓] Cookies should work for YouTube authentication")
     else:
-        print(f"[!] WARNING: {msg}")
-        print(f"[!] Cookie file must be in Netscape format (not Chrome JSON)")
-        print(f"[!] Use browser extension like 'Get cookies.txt' or 'cookies.txt'")
-        print(f"[!] Export from your browser AFTER logging into YouTube")
+        print(f"[!] ❌ CRITICAL ERROR: {msg}")
+        print(f"\\n[!] HOW TO FIX:")
+        print(f"[!] 1. Open YouTube in your browser and LOG IN to your account")
+        print(f"[!] 2. Install browser extension: 'Get cookies.txt LOCALLY'")
+        print(f"[!]    Chrome: https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc")
+        print(f"[!]    Firefox: https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/")
+        print(f"[!] 3. Click the extension icon while on youtube.com")
+        print(f"[!] 4. Save as '{COOKIES_FILE}'")
+        print(f"[!] 5. Restart this container")
+        print(f"[!]")
+        print(f"[!] ⚠️  Downloads will FAIL until you fix the cookies!")
 else:
     print(f"[✗] Cookies file NOT found: {COOKIES_FILE}")
     print(f"[!] yt-dlp will run WITHOUT authentication (guest mode)")
+    print(f"[!] Some videos may be age-restricted or unavailable")
+    print(f"[!] To fix: Export YouTube cookies in Netscape format to {COOKIES_FILE}")
     print(f"[!] Some videos may be age-restricted or unavailable")
     print(f"[!] To fix: Export YouTube cookies in Netscape format to {COOKIES_FILE}")
 print("="*60 + "\\n")
