@@ -108,9 +108,10 @@ class YTDLPService:
         """
         try:
             ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
+                "quiet": False,  # Enable output to see cookie loading
+                "no_warnings": False,  # Show warnings to debug cookie issues
                 "extract_flat": True,
+                "verbose": True,  # Add verbose mode for detailed debug output
                 # Add YouTube-specific extractor arguments for better compatibility
                 "extractor_args": {
                     "youtube": {
@@ -123,7 +124,14 @@ class YTDLPService:
             # Add cookies if file exists
             if os.path.exists(COOKIES_FILE):
                 print(f"[✓] Using cookies for search: {COOKIES_FILE}")
+                print(f"[DEBUG] Cookie file size: {os.path.getsize(COOKIES_FILE)} bytes")
                 ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+                
+                # Verify cookie file content
+                with open(COOKIES_FILE, 'r') as f:
+                    cookie_lines = f.readlines()
+                    valid_cookies = [line for line in cookie_lines if line.strip() and not line.startswith('#')]
+                    print(f"[DEBUG] Found {len(valid_cookies)} cookie entries in file")
             else:
                 print(f"[!] No cookies file found for search - running in guest mode")
 
@@ -168,8 +176,9 @@ class YTDLPService:
         """
         try:
             ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
+                "quiet": False,  # Enable output to see cookie loading
+                "no_warnings": False,  # Show warnings to debug cookie issues
+                "verbose": True,  # Add verbose mode for detailed debug output
                 # Add YouTube-specific extractor arguments
                 "extractor_args": {
                     "youtube": {
@@ -182,7 +191,14 @@ class YTDLPService:
             # Add cookies if file exists
             if os.path.exists(COOKIES_FILE):
                 print(f"[✓] Using cookies for video info: {COOKIES_FILE}")
+                print(f"[DEBUG] Cookie file size: {os.path.getsize(COOKIES_FILE)} bytes")
                 ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+                
+                # Verify cookie file content
+                with open(COOKIES_FILE, 'r') as f:
+                    cookie_lines = f.readlines()
+                    valid_cookies = [line for line in cookie_lines if line.strip() and not line.startswith('#')]
+                    print(f"[DEBUG] Found {len(valid_cookies)} cookie entries in file")
             else:
                 print(f"[!] No cookies file found for video info - running in guest mode")
 
@@ -283,8 +299,9 @@ class YTDLPService:
                         "preferredquality": "192",
                     }],
                     "outtmpl": filepath,
-                    "quiet": True,
-                    "no_warnings": True,
+                    "quiet": False,  # Enable output to see cookie loading
+                    "no_warnings": False,  # Show warnings to debug cookie issues
+                    "verbose": True,  # Add verbose mode for detailed debug output
                     # Add YouTube-specific extractor arguments
                     "extractor_args": {
                         "youtube": {
@@ -297,8 +314,9 @@ class YTDLPService:
                 ydl_opts = {
                     "format": "best[ext=mp4][height<=720]/best[ext=mp4]/best",
                     "outtmpl": filepath,
-                    "quiet": True,
-                    "no_warnings": True,
+                    "quiet": False,  # Enable output to see cookie loading
+                    "no_warnings": False,  # Show warnings to debug cookie issues
+                    "verbose": True,  # Add verbose mode for detailed debug output
                     # Add YouTube-specific extractor arguments
                     "extractor_args": {
                         "youtube": {
@@ -311,7 +329,14 @@ class YTDLPService:
             # Add cookies if file exists
             if os.path.exists(COOKIES_FILE):
                 print(f"[✓] Using cookies for download: {COOKIES_FILE}")
+                print(f"[DEBUG] Cookie file size: {os.path.getsize(COOKIES_FILE)} bytes")
                 ydl_opts["cookiefile"] = COOKIES_FILE  # type: ignore
+                
+                # Verify cookie file content
+                with open(COOKIES_FILE, 'r') as f:
+                    cookie_lines = f.readlines()
+                    valid_cookies = [line for line in cookie_lines if line.strip() and not line.startswith('#')]
+                    print(f"[DEBUG] Found {len(valid_cookies)} cookie entries in file")
             else:
                 print(f"[!] No cookies file found for download - running in guest mode")
 
