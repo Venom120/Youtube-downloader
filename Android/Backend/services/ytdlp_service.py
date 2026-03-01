@@ -95,7 +95,24 @@ class YTDLPService:
     def extract_video_id(self, url: str) -> Optional[str]:
         """Extract video ID from YouTube URL"""
         try:
-            with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+            ydl_opts = {
+                "quiet": False,
+                "no_warnings": False,
+                "verbose": True,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["ios", "web"],
+                        "skip": ["dash"],
+                    }
+                },
+            }
+            
+            # Add cookies if file exists
+            if os.path.exists(COOKIES_FILE):
+                print(f"[✓] Using cookies for extract_video_id: {COOKIES_FILE}")
+                ydl_opts["cookiefile"] = COOKIES_FILE
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                 info = ydl.extract_info(url, download=False)
                 return info.get("id")
         except Exception as e:
