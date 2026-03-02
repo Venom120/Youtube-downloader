@@ -6,6 +6,8 @@ Run this to diagnose cookie issues before using yt-dlp.
 import os
 import sys
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 COOKIES_FILE = os.getenv("COOKIES_FILE", "/app/cookies/cookies.txt")
 

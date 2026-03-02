@@ -57,22 +57,24 @@ class VideoCard(cust.CTkFrame):
     
     def _create_widgets(self):
         """Create all widgets for the card"""
-        # Main horizontal container (25% thumbnail, 75% details)
+        # Main horizontal container (fixed width thumbnail, flexible details)
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=25)  # Thumbnail - 25% width
-        self.grid_columnconfigure(1, weight=75)  # Details - 75% width
+        self.grid_columnconfigure(0, weight=0, minsize=400)  # Thumbnail - fixed minimum width
+        self.grid_columnconfigure(1, weight=1)  # Details - takes remaining space
         
         # ===== LEFT SIDE: THUMBNAIL =====
-        self.thumbnail_container = cust.CTkFrame(self, fg_color="transparent")
-        self.thumbnail_container.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.thumbnail_container = cust.CTkFrame(self, fg_color="transparent", width=400)
+        self.thumbnail_container.grid(row=0, column=0, sticky="ns", padx=0, pady=0)
+        self.thumbnail_container.grid_propagate(False)  # Prevent thumbnail from shrinking
         
-        # Thumbnail label - fills container width, maintains aspect ratio
+        # Thumbnail label - fixed size, maintains aspect ratio
         self.thumbnail_label = cust.CTkLabel(
             self.thumbnail_container,
             text="Loading...",
             fg_color=("#e0e0e0", "#1a1a1a"),
             corner_radius=6,
-            font=cust.CTkFont(size=10)
+            font=cust.CTkFont(size=10),
+            width=400
         )
         self.thumbnail_label.pack(fill="both", expand=True)
         
@@ -112,7 +114,7 @@ class VideoCard(cust.CTkFrame):
         details_container.grid_rowconfigure(4, weight=1)  # Button frame expands
         
         # Title section
-        title_text = self.video.title if len(self.video.title) <= 80 else self.video.title[:77] + "..."
+        title_text = self.video.title
         
         # Make title clickable if it's a playlist
         if self.video.is_playlist and self.on_title_click:
@@ -134,7 +136,7 @@ class VideoCard(cust.CTkFrame):
                 font=cust.CTkFont(size=24, weight="bold"),
                 text_color=("#1a1a1a", "#e0e0e0"),
                 anchor="w",
-                wraplength=0,  # Use full available width
+                wraplength=600,  # Wrap text at 600 pixels
                 justify="left"
             )
         
@@ -151,7 +153,7 @@ class VideoCard(cust.CTkFrame):
             font=cust.CTkFont(size=20),
             text_color=("#666666", "#999999"),
             anchor="w",
-            wraplength=0,  # Use full available width
+            wraplength=600,  # Wrap text at 600 pixels
         )
         info_label.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         
@@ -214,17 +216,9 @@ class VideoCard(cust.CTkFrame):
                     self.thumbnail_label.configure(text="📹")
                     return
                 
-                # Get actual container width (25% of card width)
-                container_width = self.thumbnail_container.winfo_width()
-                
-                # Use container width if available, otherwise use reasonable default
-                if container_width > 10:
-                    img_width = int(container_width * 0.95)  # Slightly smaller for margin
-                else:
-                    img_width = 180  # Fallback default
-                
-                # Calculate height to maintain 16:9 aspect ratio
-                img_height = int(img_width * 9 / 16)
+                # Use fixed thumbnail dimensions (16:9 aspect ratio)
+                img_width = 370  # Fixed width for consistent layout
+                img_height = int(img_width * 9 / 16)  # Maintain 16:9 aspect ratio
                 
                 response = requests.get(self.video.thumbnail_url, timeout=5)
                 
@@ -333,6 +327,27 @@ class VideoCard(cust.CTkFrame):
                 self.mp3_button.configure(state="normal", text="🎵 MP3")
             if self.progress_label and self.progress_label.winfo_exists():
                 self.progress_label.configure(text=f"❌ {error_msg}", text_color="red")
+        except Exception:
+            pass
+    
+    def disable_title(self):
+        """Disable title button while preserving text color"""
+        try:
+            if hasattr(self, 'title_label') and isinstance(self.title_label, cust.CTkButton):
+                if self.title_label.winfo_exists():
+                    self.title_label.configure(state="disabled")
+                    # Restore text color since disabled state grays it out
+                    self.title_label.configure(text_color=("#0066cc", "#4da6ff"))
+        except Exception:
+            pass
+    
+    def enable_title(self):
+        """Enable title button and restore text color"""
+        try:
+            if hasattr(self, 'title_label') and isinstance(self.title_label, cust.CTkButton):
+                if self.title_label.winfo_exists():
+                    self.title_label.configure(state="normal")
+                    self.title_label.configure(text_color=("#0066cc", "#4da6ff"))
         except Exception:
             pass
 

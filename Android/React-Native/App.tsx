@@ -32,12 +32,12 @@ const isPlaylistUrl = (value: string): boolean => /[?&]list=/.test(value);
 const SAF_STORAGE_KEY = '@venom120_ytdownloader_saf_uri';
 
 export default function App() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState("dandelions");
   const [videos, setVideos] = useState<VideoInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloadPath, setDownloadPath] = useState<string>("");
   const [cachePath, setCachePath] = useState<string>("");
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [, setDownloadProgress] = useState<Record<string, number>>({});
   const [downloads, setDownloads] = useState<DownloadTask[]>([]);
   const [showDownloadsModal, setShowDownloadsModal] = useState(false);
   const [isReady, setIsReady] = useState(false);

@@ -6,7 +6,9 @@ import os
 import webbrowser
 import customtkinter as cust
 import tkinter as tk
-from typing import List, Optional, Callable
+import subprocess
+from tkinter import messagebox
+from typing import List, Optional, Callable, Dict
 from models.video_model import VideoInfo, SearchResult
 from controllers.search_controller import SearchController
 from controllers.download_controller import DownloadController
@@ -149,6 +151,16 @@ class MainWindow:
         self.downloads_panel = None
         self.downloads_list = None
         self.downloads_button = None
+        self.search_button = None  # Store reference for disabling
+        
+        # Operation tracking for disabling navigation
+        self.active_operations = 0  # Track active downloads/loading operations
+        
+        # Playlist download tracking
+        self.active_playlist_downloads = {}  # playlist_id -> {total, completed, failed, format_type, card}
+        self.video_download_state = {}  # video_id -> {status: 'downloading'/'completed'/'failed', format: 'mp4'/'mp3'}
+        self.download_id_to_video_id = {}  # download_id -> video_id for tracking
+        self.playlist_individual_downloads = {}  # playlist_id -> set of video_ids that were downloaded individually
         
         # Pagination state
         self.current_search_result = None  # Store all search results
@@ -219,7 +231,7 @@ class MainWindow:
         self.search_entry.bind("<Return>", lambda e: self._on_search())
         
         # Search button with better styling
-        search_btn = cust.CTkButton(
+        self.search_button = cust.CTkButton(
             search_frame,
             text="Search",
             width=100,
@@ -229,8 +241,8 @@ class MainWindow:
             hover_color=("#990000", "#cc0000"),
             text_color="white"
         )
-        search_btn.pack(side="left")
-        search_btn.configure(command=self._on_search)
+        self.search_button.pack(side="left")
+        self.search_button.configure(command=self._on_search)
         
         # ===== ERROR/INFO BANNER =====
         self.info_frame = cust.CTkFrame(self.app, fg_color=("#ffe6e6", "#4a1a1a"), height=45)
@@ -363,11 +375,12 @@ class MainWindow:
             corner_radius=10,
             border_width=1,
             border_color=("#cccccc", "#333333"),
-            width=620,
+            width=550,
             height=420
         )
         self.downloads_panel.place_forget()
         self.downloads_panel.grid_propagate(False)
+        self.downloads_panel.pack_propagate(False)
         
         header = cust.CTkFrame(self.downloads_panel, fg_color="transparent")
         header.pack(fill="x", padx=12, pady=(10, 6))
@@ -379,6 +392,18 @@ class MainWindow:
             text_color=("#333333", "#e0e0e0")
         )
         title.pack(side="left")
+        
+        close_btn = cust.CTkButton(
+            header,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color=("#eeeeee", "#333333"),
+            hover_color=("#dddddd", "#444444"),
+            text_color=("#333333", "#e0e0e0"),
+            command=self._toggle_downloads_panel
+        )
+        close_btn.pack(side="right")
         
         # Folder button to open downloads directory
         folder_btn = cust.CTkButton(
@@ -396,23 +421,13 @@ class MainWindow:
         # Tooltip for folder button
         self._create_tooltip(folder_btn, "Open downloads folder")
         
-        close_btn = cust.CTkButton(
-            header,
-            text="✕",
-            width=28,
-            height=28,
-            fg_color=("#eeeeee", "#333333"),
-            hover_color=("#dddddd", "#444444"),
-            text_color=("#333333", "#e0e0e0"),
-            command=self._toggle_downloads_panel
-        )
-        close_btn.pack(side="right")
-        
         self.downloads_list = cust.CTkScrollableFrame(
             self.downloads_panel,
-            fg_color="transparent"
+            fg_color="transparent",
+            width=540
         )
         self.downloads_list.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.downloads_list.pack_propagate(False)
         
         self.downloads_empty_label = cust.CTkLabel(
             self.downloads_list,
@@ -453,13 +468,10 @@ class MainWindow:
             
             # Open folder based on OS
             if sys.platform == 'win32':
-                import subprocess
                 subprocess.Popen(['explorer', os.path.normpath(self.download_path)])
             elif sys.platform == 'darwin':  # macOS
-                import subprocess
                 subprocess.Popen(['open', self.download_path])
             else:  # Linux
-                import subprocess
                 subprocess.Popen(['xdg-open', self.download_path])
         except Exception as e:
             self._show_error(f"Could not open folder: {str(e)}")
@@ -500,93 +512,114 @@ class MainWindow:
     
     def _update_downloads_button(self):
         """Update downloads button text with active count"""
-        active_count = 0
-        for task in self.download_controller.get_downloads():
-            if task.status in {"queued", "downloading", "paused"}:
-                active_count += 1
+        # Count active downloads from the UI items
+        active_count = len(self.download_items)
         
         if self.downloads_button:
             self.downloads_button.configure(text=f"Downloads ({active_count})")
     
     def _add_download_item(self, download_id: Optional[str], video: VideoInfo, format_type: str, is_playlist: bool):
-        if not self.downloads_list:
-            return
-        
-        if hasattr(self, 'downloads_empty_label') and self.downloads_empty_label.winfo_exists():
-            self.downloads_empty_label.pack_forget()
-        
-        item = cust.CTkFrame(
-            self.downloads_list,
-            fg_color=("#f7f7f7", "#222222"),
-            corner_radius=8,
-            border_width=1,
-            border_color=("#dddddd", "#333333")
-        )
-        item.pack(fill="x", padx=6, pady=6)
-        item.grid_columnconfigure(0, weight=1)
-        
-        title_text = video.title if len(video.title) <= 50 else f"{video.title[:47]}..."
-        format_label = "Playlist" if is_playlist else format_type.upper()
-        
-        title = cust.CTkLabel(
-            item,
-            text=title_text,
-            font=cust.CTkFont(size=12, weight="bold"),
-            text_color=("#222222", "#e0e0e0")
-        )
-        title.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 2))
-        
-        meta = cust.CTkLabel(
-            item,
-            text=f"{format_label} · Queued",
-            font=cust.CTkFont(size=11),
-            text_color=("#666666", "#999999")
-        )
-        meta.grid(row=1, column=0, sticky="w", padx=10)
-        
-        progress = cust.CTkProgressBar(item, height=6)
-        progress.set(0)
-        progress.grid(row=2, column=0, sticky="ew", padx=10, pady=(6, 8))
-        
-        actions = cust.CTkFrame(item, fg_color="transparent")
-        actions.grid(row=0, column=1, rowspan=3, padx=10, pady=10)
-        
-        pause_btn = cust.CTkButton(
-            actions,
-            text="Pause",
-            width=80,
-            height=26,
-            font=cust.CTkFont(size=11),
-            fg_color=("#555555", "#444444"),
-            hover_color=("#666666", "#555555"),
-            text_color="white",
-            command=lambda: self._on_pause_resume_clicked(download_id)
-        )
-        pause_btn.pack(pady=(0, 6))
-        
-        cancel_btn = cust.CTkButton(
-            actions,
-            text="Cancel",
-            width=80,
-            height=26,
-            font=cust.CTkFont(size=11),
-            fg_color=("#cc0000", "#ff0000"),
-            hover_color=("#990000", "#cc0000"),
-            text_color="white",
-            command=lambda: self._on_cancel_clicked(download_id)
-        )
-        cancel_btn.pack()
-        
-        self.download_items[download_id] = {
-            "frame": item,
-            "title": title,
-            "meta": meta,
-            "progress": progress,
-            "pause_btn": pause_btn,
-            "cancel_btn": cancel_btn
-        }
-        
-        self._update_downloads_button()
+        try:
+            if not download_id:
+                print("_add_download_item: download_id is None")
+                return
+            if not self.downloads_list:
+                print("_add_download_item: downloads_list does not exist")
+                return
+            if not self.downloads_list.winfo_exists():
+                print("_add_download_item: downloads_list widget does not exist")
+                return
+            
+            print(f"_add_download_item: Adding item for {video.title[:30]}... (ID: {download_id})")
+            
+            if hasattr(self, 'downloads_empty_label') and self.downloads_empty_label.winfo_exists():
+                self.downloads_empty_label.pack_forget()
+                # Force layout update after hiding empty label
+                self.downloads_list.update_idletasks()
+            
+            item = cust.CTkFrame(
+                self.downloads_list,
+                fg_color=("#f7f7f7", "#222222"),
+                corner_radius=8,
+                border_width=1,
+                border_color=("#dddddd", "#333333"),
+                width=530
+            )
+            item.pack(fill="x", padx=6, pady=6)
+            item.grid_columnconfigure(0, weight=1)
+            item.grid_propagate(False)
+            
+            # Force scrollable frame to update its scroll region
+            self.downloads_list.update_idletasks()
+            
+            title_text = video.title if len(video.title) <= 45 else f"{video.title[:42]}..."
+            format_label = "Playlist" if is_playlist else format_type.upper()
+            
+            title = cust.CTkLabel(
+                item,
+                text=title_text,
+                font=cust.CTkFont(size=12, weight="bold"),
+                text_color=("#222222", "#e0e0e0"),
+                wraplength=420
+            )
+            title.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 2))
+            
+            meta = cust.CTkLabel(
+                item,
+                text=f"{format_label} · Queued",
+                font=cust.CTkFont(size=11),
+                text_color=("#666666", "#999999"),
+                wraplength=420
+            )
+            meta.grid(row=1, column=0, sticky="w", padx=10)
+            
+            progress = cust.CTkProgressBar(item, height=6)
+            progress.set(0)
+            progress.grid(row=2, column=0, sticky="ew", padx=10, pady=(6, 8))
+            
+            actions = cust.CTkFrame(item, fg_color="transparent")
+            actions.grid(row=0, column=1, rowspan=3, padx=10, pady=10)
+            
+            pause_btn = cust.CTkButton(
+                actions,
+                text="Pause",
+                width=80,
+                height=26,
+                font=cust.CTkFont(size=11),
+                fg_color=("#555555", "#444444"),
+                hover_color=("#666666", "#555555"),
+                text_color="white",
+                command=lambda: self._on_pause_resume_clicked(download_id)
+            )
+            pause_btn.pack(pady=(0, 6))
+            
+            cancel_btn = cust.CTkButton(
+                actions,
+                text="Cancel",
+                width=80,
+                height=26,
+                font=cust.CTkFont(size=11),
+                fg_color=("#cc0000", "#ff0000"),
+                hover_color=("#990000", "#cc0000"),
+                text_color="white",
+                command=lambda: self._on_cancel_clicked(download_id)
+            )
+            cancel_btn.pack()
+            
+            self.download_items[download_id] = {
+                "frame": item,
+                "title": title,
+                "meta": meta,
+                "progress": progress,
+                "pause_btn": pause_btn,
+                "cancel_btn": cancel_btn
+            }
+            
+            self._update_downloads_button()
+        except Exception as e:
+            print(f"Error adding download item: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _update_download_item_progress(self, download_id: Optional[str], percentage: float):
         item = self.download_items.get(download_id)
@@ -612,20 +645,24 @@ class MainWindow:
         if status in {"Completed", "Canceled", "Error"}:
             item["pause_btn"].configure(state="disabled")
             item["cancel_btn"].configure(state="disabled")
-            # Remove the item after a short delay
+            # Remove the item immediately after a very short delay
             def remove_item():
                 if download_id in self.download_items:
                     item_frame = self.download_items[download_id]["frame"]
                     item_frame.pack_forget()
+                    item_frame.destroy()
                     del self.download_items[download_id]
                     
                     # Show empty label if no downloads left
                     if not self.download_items and hasattr(self, 'downloads_empty_label'):
                         self.downloads_empty_label.pack(pady=20)
+                    
+                    # Update downloads button after removal
+                    self._update_downloads_button()
             
-            self.app.after(1000, remove_item)
-        
-        self._update_downloads_button()
+            self.app.after(100, remove_item)
+        else:
+            self._update_downloads_button()
     
     def _on_pause_resume_clicked(self, download_id: Optional[str]):
         if not download_id:
@@ -646,53 +683,713 @@ class MainWindow:
     def _on_cancel_clicked(self, download_id: Optional[str]):
         if not download_id:
             return
+        
+        # Get video_id for this download
+        video_id = self.download_id_to_video_id.get(download_id)
+        
         if self.download_controller.cancel_download(download_id):
             self._set_download_item_status(download_id, "Canceled")
+            
+            # Update video state to canceled
+            if video_id and video_id in self.video_download_state:
+                format_type = self.video_download_state[video_id].get('format')
+                self.video_download_state[video_id] = {
+                    'status': 'canceled',
+                    'format': format_type,
+                    'error': 'Canceled by user'
+                }
+                
+                # Check if this video is part of any active playlist download
+                for playlist_id, playlist_info in list(self.active_playlist_downloads.items()):
+                    if playlist_info['format_type'] == format_type:
+                        # Increment failed count for the playlist
+                        playlist_info['failed'] += 1
+                        
+                        # Update playlist button progress
+                        playlist_card = playlist_info['card']
+                        total = playlist_info['total']
+                        completed = playlist_info['completed']
+                        failed = playlist_info['failed']
+                        
+                        def update_playlist_btn():
+                            try:
+                                if not playlist_card.winfo_exists():
+                                    return
+                                if format_type == "mp4":
+                                    playlist_card.mp4_button.configure(
+                                        state="disabled",
+                                        text=f"Downloading... ({completed + failed}/{total})"
+                                    )
+                                else:
+                                    playlist_card.mp3_button.configure(
+                                        state="disabled",
+                                        text=f"Downloading... ({completed + failed}/{total})"
+                                    )
+                            except:
+                                pass
+                        
+                        self._run_ui(update_playlist_btn)
+                        
+                        # If all videos are done (completed or failed), reset playlist buttons
+                        if completed + failed >= total:
+                            del self.active_playlist_downloads[playlist_id]
+                            
+                            def reset_playlist_btn():
+                                try:
+                                    if not playlist_card.winfo_exists():
+                                        return
+                                    if format_type == "mp4":
+                                        playlist_card.mp4_button.configure(
+                                            state="normal",
+                                            text="📥 MP4",
+                                            fg_color=("#cc0000", "#ff0000")
+                                        )
+                                        playlist_card.mp3_button.configure(state="normal")
+                                    else:
+                                        playlist_card.mp3_button.configure(
+                                            state="normal",
+                                            text="🎵 MP3",
+                                            fg_color=("#0066cc", "#0080ff")
+                                        )
+                                        playlist_card.mp4_button.configure(state="normal")
+                                except:
+                                    pass
+                            
+                            self._run_ui(reset_playlist_btn)
+                        
+                        break  # Found the playlist, no need to continue
+                
+                # Reset button state for the individual video card if it exists
+                if video_id in self.card_references:
+                    card = self.card_references[video_id]
+                    
+                    def reset_video_btn():
+                        try:
+                            if not card.winfo_exists():
+                                return
+                            # Reset both buttons to allow retry
+                            card.mp4_button.configure(state="normal", text="📥 MP4", fg_color=("#cc0000", "#ff0000"))
+                            card.mp3_button.configure(state="normal", text="🎵 MP3", fg_color=("#0066cc", "#0080ff"))
+                        except:
+                            pass
+                    
+                    self._run_ui(reset_video_btn)
+            
+            # Clean up mapping
+            if download_id in self.download_id_to_video_id:
+                del self.download_id_to_video_id[download_id]
     
     def _run_ui(self, callback: Callable[[], None]):
         self.app.after(0, callback)
     
+    def _start_operation(self):
+        """Increment operation counter and disable navigation"""
+        self.active_operations += 1
+        if self.active_operations > 0:
+            self._disable_navigation()
+    
+    def _end_operation(self):
+        """Decrement operation counter and enable navigation if no operations active"""
+        self.active_operations = max(0, self.active_operations - 1)
+        if self.active_operations == 0:
+            self._enable_navigation()
+    
+    def _disable_navigation(self):
+        """Disable search and back buttons"""
+        try:
+            self.search_entry.configure(state="disabled")
+            if self.search_button:
+                self.search_button.configure(state="disabled")
+            if self.back_button:
+                self.back_button.configure(state="disabled")
+        except:
+            pass
+    
+    def _enable_navigation(self):
+        """Enable search and back buttons"""
+        try:
+            self.search_entry.configure(state="normal")
+            if self.search_button:
+                self.search_button.configure(state="normal")
+            if self.back_button:
+                self.back_button.configure(state="normal")
+        except:
+            pass
+    
+    def _normalize_playlist_title(self, title: str) -> str:
+        """Normalize playlist title for use as directory name"""
+        import re
+        import unicodedata
+        
+        # Remove emojis and special characters
+        # Keep only alphanumeric, spaces, hyphens, and underscores
+        cleaned = ''.join(char for char in title if unicodedata.category(char)[0] != 'C' and (char.isalnum() or char in ' -_'))
+        
+        # Remove emojis more aggressively
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"  # emoticons
+            "\U0001F300-\U0001F5FF"  # symbols & pictographs
+            "\U0001F680-\U0001F6FF"  # transport & map symbols
+            "\U0001F1E0-\U0001F1FF"  # flags
+            "\U00002702-\U000027B0"
+            "\U000024C2-\U0001F251"
+            "]+", flags=re.UNICODE
+        )
+        cleaned = emoji_pattern.sub('', cleaned)
+        
+        # Replace spaces with underscores
+        cleaned = cleaned.replace(' ', '_')
+        
+        # Replace pipes with hyphens
+        cleaned = cleaned.replace('|', '-')
+        
+        # Remove multiple consecutive underscores
+        cleaned = re.sub(r'_+', '_', cleaned)
+        
+        # Remove leading/trailing underscores
+        cleaned = cleaned.strip('_')
+        
+        # Limit length to avoid filesystem issues
+        if len(cleaned) > 100:
+            cleaned = cleaned[:100]
+        
+        # If empty after cleaning, use a default name with increasing number if old nummber already exists `playlist (i)`
+
+        if not cleaned:
+            cleaned = 'playlist'
+            i = 1
+            if cleaned not in os.listdir(self.download_path):
+                return cleaned
+            while f"{cleaned} ({i})" in os.listdir(self.download_path):
+                i += 1
+            cleaned = f"{cleaned} ({i})"
+        
+        return cleaned
+    
     def _start_download(self, video: VideoInfo, format_type: str, card: VideoCard, is_playlist: bool):
+        # If it's a playlist, show confirmation and download all videos
+        if is_playlist:
+            # Check if any video in this playlist is CURRENTLY being downloaded individually
+            playlist_id = video.video_id
+            if playlist_id in self.playlist_individual_downloads:
+                # Check if any of those videos are actively downloading
+                active_individual_downloads = False
+                for video_id in self.playlist_individual_downloads[playlist_id]:
+                    if video_id in self.video_download_state:
+                        state = self.video_download_state[video_id]
+                        if state.get('status') == 'downloading':
+                            active_individual_downloads = True
+                            break
+                
+                if active_individual_downloads:
+                    self._show_error("Some videos in this playlist are currently downloading individually. Please wait for them to complete.")
+                    return
+            
+            # Disable both buttons and title immediately for playlist
+            try:
+                card.mp4_button.configure(state="disabled")
+                card.mp3_button.configure(state="disabled")
+                # Disable title click while preserving text color
+                card.disable_title()
+            except:
+                pass
+            
+            # Start operation (disable navigation) before fetching playlist
+            self._start_operation()
+            
+            self._download_playlist_confirmation(video, format_type, card)
+            return
+        
+        # Check if already downloaded
+        if video.video_id in self.video_download_state:
+            state = self.video_download_state[video.video_id]
+            if state.get('status') == 'completed' and state.get('format') == format_type:
+                self._show_error("This video has already been downloaded in this format")
+                return
+            # Check if other format is downloading or completed
+            if state.get('status') in ('downloading', 'completed'):
+                other_format = 'mp3' if format_type == 'mp4' else 'mp4'
+                if state.get('format') == other_format:
+                    self._show_error(f"This video is already downloading/downloaded as {other_format.upper()}")
+                    return
+        
+        # Disable both buttons immediately
+        try:
+            card.mp4_button.configure(state="disabled")
+            card.mp3_button.configure(state="disabled")
+        except:
+            pass
+        
+        # Start operation (disable navigation)
+        self._start_operation()
+        
+        # Regular single video download
         download_id: Optional[str] = None
+        
+        # Track video state
+        self.video_download_state[video.video_id] = {
+            'status': 'downloading',
+            'format': format_type,
+            'progress': 0
+        }
         
         def on_progress(p: float):
             if download_id is None:
                 return
             self._run_ui(lambda: self._update_download_item_progress(download_id, p))
+            # Update video state progress
+            if video.video_id in self.video_download_state:
+                self.video_download_state[video.video_id]['progress'] = p
         
         def on_complete(_filename: str):
             if download_id is None:
                 return
             self._run_ui(lambda: self._set_download_item_status(download_id, "Completed"))
-            self._run_ui(lambda: card.download_complete(format_type))
+            
+            # Update video state
+            self.video_download_state[video.video_id] = {
+                'status': 'completed',
+                'format': format_type
+            }
+            
+            # Mark this video as individually downloaded if it belongs to a playlist
+            # Check all playlists to see if this video belongs to any
+            for pl_id in self.card_references:
+                card_ref = self.card_references[pl_id]
+                if hasattr(card_ref.video, 'is_playlist') and card_ref.video.is_playlist:
+                    # This is a playlist card, we need to check if our video belongs to it
+                    # We'll mark it when we're in playlist view
+                    pass
+            
+            # If we're in playlist mode, track this as individual download
+            if self.current_mode == "playlist" and self.current_playlist:
+                playlist_id = self.current_playlist.video_id
+                if playlist_id not in self.playlist_individual_downloads:
+                    self.playlist_individual_downloads[playlist_id] = set()
+                self.playlist_individual_downloads[playlist_id].add(video.video_id)
+            
+            # Show downloaded state - only enable the downloaded format button
+            def update_complete_state():
+                try:
+                    if not card.winfo_exists():
+                        return
+                    if format_type == "mp4":
+                        card.mp4_button.configure(state="normal", text="✓ Downloaded", fg_color=("#00aa00", "#00cc00"))
+                        # Keep MP3 disabled
+                    else:
+                        card.mp3_button.configure(state="normal", text="✓ Downloaded", fg_color=("#00aa00", "#00cc00"))
+                        # Keep MP4 disabled
+                except:
+                    pass
+            
+            self._run_ui(update_complete_state)
+            
+            # End operation (re-enable navigation)
+            self._end_operation()
         
         def on_error(error: str):
             if download_id is None:
                 return
             self._run_ui(lambda: self._set_download_item_status(download_id, "Error", error))
             self._run_ui(lambda: self._on_download_error(error, card))
+            
+            # Update video state
+            self.video_download_state[video.video_id] = {
+                'status': 'failed',
+                'format': format_type,
+                'error': error
+            }
+            
+            # Reset both buttons to original state on error (allow retry of either format)
+            def reset_error_state():
+                try:
+                    if not card.winfo_exists():
+                        return
+                    card.mp4_button.configure(state="normal", text="📥 MP4", fg_color=("#cc0000", "#ff0000"))
+                    card.mp3_button.configure(state="normal", text="🎵 MP3", fg_color=("#0066cc", "#0080ff"))
+                except:
+                    pass
+            
+            self._run_ui(reset_error_state)
+            
+            # End operation (re-enable navigation)
+            self._end_operation()
         
-        if is_playlist:
-            download_id = self.download_controller.download_playlist(
-                video,
-                format_type=format_type,
-                progress_callback=on_progress,
-                complete_callback=on_complete,
-                error_callback=on_error
-            )
-        else:
-            download_id = self.download_controller.download_video(
-                video,
-                format_type=format_type,
-                progress_callback=on_progress,
-                complete_callback=on_complete,
-                error_callback=on_error
-            )
+        # Use queue_download for sequential processing
+        download_id = self.download_controller.queue_download(
+            video,
+            format_type=format_type,
+            progress_callback=on_progress,
+            complete_callback=on_complete,
+            error_callback=on_error
+        )
         
         if not download_id:
             return
-        self._add_download_item(download_id, video, format_type, is_playlist)
-        self._update_downloads_button()
+        
+        # Add download item via UI thread for consistency
+        self._run_ui(lambda: self._add_download_item(download_id, video, format_type, is_playlist=False))
+        
+        # Track download_id to video_id mapping
+        self.download_id_to_video_id[download_id] = video.video_id
+    
+    def _download_playlist_confirmation(self, playlist: VideoInfo, format_type: str, card: VideoCard):
+        """Show confirmation dialog and download all videos from playlist"""
+        # First, fetch all videos in the playlist
+        def on_videos_fetched(videos: List[VideoInfo]):
+            if not videos:
+                self._run_ui(lambda: self._show_error("Failed to fetch playlist videos"))
+                self._run_ui(lambda: card.download_error("Failed to fetch playlist"))
+                
+                # End operation (re-enable navigation) on error
+                self._end_operation()
+                
+                # Reset buttons
+                def reset_buttons():
+                    try:
+                        if card.winfo_exists():
+                            if format_type == "mp4":
+                                card.mp4_button.configure(state="normal", text="📥 MP4", fg_color=("#cc0000", "#ff0000"))
+                                card.mp3_button.configure(state="normal")
+                            else:
+                                card.mp3_button.configure(state="normal", text="🎵 MP3", fg_color=("#0066cc", "#0080ff"))
+                                card.mp4_button.configure(state="normal")
+                            # Re-enable title
+                            card.enable_title()
+                    except:
+                        pass
+                self._run_ui(reset_buttons)
+                return
+            
+            # Show confirmation dialog in UI thread
+            def show_confirmation():
+                result = messagebox.askyesno(
+                    "Download Playlist",
+                    f"You are about to download {len(videos)} video(s) from this playlist.\n\n"
+                    f"All videos will be downloaded one by one.\n\n"
+                    f"Do you want to proceed?",
+                    icon='warning'
+                )
+                
+                if result:
+                    # User confirmed, start downloading all videos
+                    self._download_all_playlist_videos(videos, format_type, card)
+                else:
+                    # User canceled - re-enable navigation
+                    self._end_operation()
+                    
+                    # Reset buttons
+                    playlist_id = playlist.video_id
+                    if playlist_id not in self.active_playlist_downloads:
+                        # Only reset if no active playlist download
+                        try:
+                            if card.winfo_exists():
+                                if format_type == "mp4":
+                                    card.mp4_button.configure(state="normal", text="📥 MP4", fg_color=("#cc0000", "#ff0000"))
+                                    card.mp3_button.configure(state="normal")
+                                else:
+                                    card.mp3_button.configure(state="normal", text="🎵 MP3", fg_color=("#0066cc", "#0080ff"))
+                                    card.mp4_button.configure(state="normal")
+                                # Re-enable title
+                                card.enable_title()
+                        except:
+                            pass
+            
+            self._run_ui(show_confirmation)
+        
+        def on_error(error: str):
+            self._run_ui(lambda: self._show_error(f"Failed to fetch playlist: {error}"))
+            
+            # End operation (re-enable navigation) on error
+            self._end_operation()
+            
+            # Reset buttons
+            playlist_id = playlist.video_id
+            if playlist_id not in self.active_playlist_downloads:
+                # Only reset if no active playlist download
+                def reset_on_error():
+                    try:
+                        if not card.winfo_exists():
+                            return
+                        if format_type == "mp4":
+                            card.mp4_button.configure(state="normal", text="📥 MP4", fg_color=("#cc0000", "#ff0000"))
+                            card.mp3_button.configure(state="normal")
+                        else:
+                            card.mp3_button.configure(state="normal", text="🎵 MP3", fg_color=("#0066cc", "#0080ff"))
+                            card.mp4_button.configure(state="normal")
+                        # Re-enable title
+                        card.enable_title()
+                    except:
+                        pass
+                
+                self._run_ui(reset_on_error)
+        
+        # Fetch playlist videos
+        self.search_controller.get_playlist_videos(
+            playlist.url,
+            callback=on_videos_fetched,
+            error_callback=on_error
+        )
+    
+    def _download_all_playlist_videos(self, videos: List[VideoInfo], format_type: str, card: VideoCard):
+        """Download all videos from a playlist sequentially"""
+        total_videos = len(videos)
+        completed_count = 0
+        failed_count = 0
+        
+        # Get playlist info for tracking
+        playlist_id = card.video.video_id
+        playlist_title = card.video.title
+        
+        # Create normalized subdirectory for playlist
+        normalized_title = self._normalize_playlist_title(playlist_title)
+        playlist_download_path = os.path.join(self.download_path, normalized_title)
+        
+        # Create the directory
+        try:
+            os.makedirs(playlist_download_path, exist_ok=True)
+        except Exception as e:
+            self._run_ui(lambda: self._show_error(f"Failed to create playlist directory: {str(e)}"))
+            return
+        
+        # Track this playlist download
+        self.active_playlist_downloads[playlist_id] = {
+            'total': total_videos,
+            'completed': 0,
+            'failed': 0,
+            'format_type': format_type,
+            'card': card,
+            'video_ids': [v.video_id for v in videos]  # Track all video IDs in this playlist
+        }
+        
+        # Update the playlist card to show overall progress (wrap in _run_ui)
+        def initial_update():
+            try:
+                if card.winfo_exists():
+                    card.mp4_button.configure(state="disabled", text=f"Downloading... (0/{total_videos})")
+                    card.mp3_button.configure(state="disabled", text=f"Downloading... (0/{total_videos})")
+            except:
+                pass
+        self._run_ui(initial_update)
+        
+        def update_playlist_progress():
+            """Update the playlist card with overall progress"""
+            try:
+                if not card.winfo_exists():
+                    return
+                
+                if format_type == "mp4":
+                    card.mp4_button.configure(
+                        state="disabled",
+                        text=f"Downloading... ({completed_count + failed_count}/{total_videos})"
+                    )
+                else:
+                    card.mp3_button.configure(
+                        state="disabled",
+                        text=f"Downloading... ({completed_count + failed_count}/{total_videos})"
+                    )
+            except:
+                pass
+        
+        # Queue all videos for download
+        for idx, video in enumerate(videos):
+            def create_callbacks(video_obj, video_idx):
+                # Create a container for download_id that will be set after queue_download returns
+                dl_id_container: Dict[str, Optional[str]] = {'id': None}
+                
+                def on_progress(p: float):
+                    if dl_id_container['id'] is None:
+                        return
+                    dl_id = dl_id_container['id']
+                    self._run_ui(lambda: self._update_download_item_progress(dl_id, p))
+                    
+                    # Update video state
+                    self.video_download_state[video_obj.video_id] = {
+                        'status': 'downloading',
+                        'format': format_type,
+                        'progress': p
+                    }
+                
+                def on_complete(_filename: str):
+                    nonlocal completed_count
+                    if dl_id_container['id'] is None:
+                        return
+                    completed_count += 1
+                    dl_id = dl_id_container['id']
+                    self._run_ui(lambda: self._set_download_item_status(dl_id, "Completed"))
+                    self._run_ui(update_playlist_progress)
+                    
+                    # Update video state
+                    self.video_download_state[video_obj.video_id] = {
+                        'status': 'completed',
+                        'format': format_type
+                    }
+                    
+                    # Update playlist tracking
+                    if playlist_id in self.active_playlist_downloads:
+                        self.active_playlist_downloads[playlist_id]['completed'] = completed_count
+                    
+                    # Sync card state if it exists in card_references
+                    if video_obj.video_id in self.card_references:
+                        video_card = self.card_references[video_obj.video_id]
+                        # For bulk playlist downloads, disable both buttons and DON'T sync state
+                        # until the entire playlist is done (to prevent re-enabling buttons)
+                        def disable_video_buttons():
+                            try:
+                                if video_card.winfo_exists():
+                                    if video_card.mp4_button.winfo_exists():
+                                        video_card.mp4_button.configure(state="disabled")
+                                    if video_card.mp3_button.winfo_exists():
+                                        video_card.mp3_button.configure(state="disabled")
+                                    # Only sync state if this playlist download is complete
+                                    if playlist_id not in self.active_playlist_downloads:
+                                        self._sync_video_card_state(video_card, video_obj.video_id)
+                            except:
+                                pass
+                        self._run_ui(disable_video_buttons)
+                    
+                    # If this is the last video, reset playlist card buttons to original state
+                    if completed_count + failed_count >= total_videos:
+                        if playlist_id in self.active_playlist_downloads:
+                            del self.active_playlist_downloads[playlist_id]
+                        
+                        # End operation (re-enable navigation) when playlist fully completes
+                        self._end_operation()
+                        
+                        if format_type == "mp4":
+                            self._run_ui(lambda: card.mp4_button.configure(
+                                state="normal",
+                                text="📥 MP4",
+                                fg_color=("#cc0000", "#ff0000")
+                            ))
+                            self._run_ui(lambda: card.mp3_button.configure(state="normal"))
+                        else:
+                            self._run_ui(lambda: card.mp3_button.configure(
+                                state="normal",
+                                text="🎵 MP3",
+                                fg_color=("#0066cc", "#0080ff")
+                            ))
+                            self._run_ui(lambda: card.mp4_button.configure(state="normal"))
+                        
+                        # Re-enable title click
+                        def enable_title():
+                            try:
+                                if card.winfo_exists():
+                                    card.enable_title()
+                            except:
+                                pass
+                        self._run_ui(enable_title)
+                
+                def on_error(error: str):
+                    nonlocal failed_count
+                    if dl_id_container['id'] is None:
+                        return
+                    failed_count += 1
+                    dl_id = dl_id_container['id']
+                    self._run_ui(lambda: self._set_download_item_status(dl_id, "Error", error))
+                    self._run_ui(update_playlist_progress)
+                    
+                    # Update video state
+                    self.video_download_state[video_obj.video_id] = {
+                        'status': 'failed',
+                        'format': format_type,
+                        'error': error
+                    }
+                    
+                    # Update playlist tracking
+                    if playlist_id in self.active_playlist_downloads:
+                        self.active_playlist_downloads[playlist_id]['failed'] = failed_count
+                    
+                    # Sync card state if it exists in card_references
+                    if video_obj.video_id in self.card_references:
+                        video_card = self.card_references[video_obj.video_id]
+                        # For bulk playlist downloads, keep both buttons disabled until entire playlist is done
+                        def disable_error_buttons():
+                            try:
+                                if video_card.winfo_exists():
+                                    if video_card.mp4_button.winfo_exists():
+                                        video_card.mp4_button.configure(state="disabled")
+                                    if video_card.mp3_button.winfo_exists():
+                                        video_card.mp3_button.configure(state="disabled")
+                                    # Only sync state if this playlist download is complete
+                                    if playlist_id not in self.active_playlist_downloads:
+                                        self._sync_video_card_state(video_card, video_obj.video_id)
+                            except:
+                                pass
+                        self._run_ui(disable_error_buttons)
+                    
+                    # If this is the last video, reset playlist card buttons to original state
+                    if completed_count + failed_count >= total_videos:
+                        if playlist_id in self.active_playlist_downloads:
+                            del self.active_playlist_downloads[playlist_id]
+                        
+                        # End operation (re-enable navigation) when playlist fully completes
+                        self._end_operation()
+                        
+                        def reset_playlist_buttons():
+                            try:
+                                if not card.winfo_exists():
+                                    return
+                                if format_type == "mp4":
+                                    card.mp4_button.configure(
+                                        state="normal",
+                                        text="📥 MP4",
+                                        fg_color=("#cc0000", "#ff0000")
+                                    )
+                                    card.mp3_button.configure(state="normal")
+                                else:
+                                    card.mp3_button.configure(
+                                        state="normal",
+                                        text="🎵 MP3",
+                                        fg_color=("#0066cc", "#0080ff")
+                                    )
+                                    card.mp4_button.configure(state="normal")
+                                # Re-enable title
+                                card.enable_title()
+                            except:
+                                pass
+                        
+                        self._run_ui(reset_playlist_buttons)
+                
+                return on_progress, on_complete, on_error, dl_id_container
+            
+            on_progress, on_complete, on_error, dl_id_container = create_callbacks(video, idx)
+            
+            # Queue the download with custom path for playlist subdirectory
+            download_id = self.download_controller.queue_download(
+                video,
+                format_type=format_type,
+                progress_callback=on_progress,
+                complete_callback=on_complete,
+                error_callback=on_error,
+                custom_download_path=playlist_download_path
+            )
+            
+            # Store the download_id in the container so callbacks can use it
+            dl_id_container['id'] = download_id
+            
+            if download_id:
+                # Add to download list UI with playlist indicator
+                video_title_with_index = f"[{idx + 1}/{total_videos}] {video.title}"
+                temp_video = VideoInfo(
+                    video_id=video.video_id,
+                    title=video_title_with_index,
+                    channel=video.channel,
+                    duration=video.duration,
+                    view_count=video.view_count,
+                    thumbnail_url=video.thumbnail_url,
+                    url=video.url,
+                    is_playlist=False
+                )
+                # Capture variables explicitly to avoid closure issues
+                self._run_ui(lambda did=download_id, vid=temp_video, fmt=format_type: 
+                            self._add_download_item(did, vid, fmt, is_playlist=False))
+                
+                # Track download_id to video_id mapping
+                self.download_id_to_video_id[download_id] = video.video_id
+        
+        self._run_ui(self._update_downloads_button)
     
     def _on_search(self):
         """Handle search button click or Enter key"""
@@ -840,7 +1537,73 @@ class MainWindow:
         # Store reference for progress updates
         self.card_references[video.video_id] = card
         
+        # Sync state with any existing downloads
+        self._sync_video_card_state(card, video.video_id)
+        
         return card
+    
+    def _sync_video_card_state(self, card: VideoCard, video_id: str):
+        """Sync video card button states with current download state"""
+        try:
+            if not card.winfo_exists():
+                return
+            
+            if video_id in self.video_download_state:
+                state = self.video_download_state[video_id]
+                status = state.get('status')
+                format_type = state.get('format')
+                
+                if status == 'completed':
+                    # Show as completed and disable the other format
+                    if format_type == 'mp4':
+                        if card.mp4_button.winfo_exists():
+                            card.mp4_button.configure(
+                                state="normal",
+                                text="✓ Downloaded",
+                                fg_color=("#00aa00", "#00cc00")
+                            )
+                        if card.mp3_button.winfo_exists():
+                            card.mp3_button.configure(state="disabled", text="🎵 MP3")
+                    elif format_type == 'mp3':
+                        if card.mp3_button.winfo_exists():
+                            card.mp3_button.configure(
+                                state="normal",
+                                text="✓ Downloaded",
+                                fg_color=("#00aa00", "#00cc00")
+                            )
+                        if card.mp4_button.winfo_exists():
+                            card.mp4_button.configure(state="disabled", text="📥 MP4")
+                elif status == 'downloading':
+                    # Show as downloading and disable both buttons
+                    progress = state.get('progress', 0)
+                    if format_type == 'mp4':
+                        if card.mp4_button.winfo_exists():
+                            card.mp4_button.configure(
+                                state="disabled",
+                                text=f"Downloading... {int(progress)}%"
+                            )
+                        if card.mp3_button.winfo_exists():
+                            card.mp3_button.configure(state="disabled", text="🎵 MP3")
+                    elif format_type == 'mp3':
+                        if card.mp3_button.winfo_exists():
+                            card.mp3_button.configure(
+                                state="disabled",
+                                text=f"Downloading... {int(progress)}%"
+                            )
+                        if card.mp4_button.winfo_exists():
+                            card.mp4_button.configure(state="disabled", text="📥 MP4")
+                elif status in ('failed', 'canceled'):
+                    # Show normal state for failed/canceled (allow retry of either format)
+                    pass
+            else:
+                # Check if this video is part of an active bulk playlist download
+                for playlist_id, playlist_info in self.active_playlist_downloads.items():
+                    # We need to check if this video is in that playlist
+                    # For now, we'll disable both buttons if ANY bulk download is active
+                    # This is a conservative approach
+                    pass
+        except:
+            pass
     
     def _on_download_mp4(self, video: VideoInfo, card: VideoCard):
         """Handle MP4 download"""
@@ -893,6 +1656,9 @@ class MainWindow:
         if not playlist.is_playlist:
             return
         
+        # Start operation (disable navigation)
+        self._start_operation()
+        
         # Show loading
         self.status_label.configure(text=f"📑 Loading playlist: {playlist.title[:40]}...")
         self.scrollable_frame.clear_cards()
@@ -914,11 +1680,14 @@ class MainWindow:
         self.search_controller.get_playlist_videos(
             playlist.url,
             callback=self._on_playlist_videos_loaded,
-            error_callback=self._on_search_error
+            error_callback=self._on_playlist_load_error
         )
     
     def _on_playlist_videos_loaded(self, videos: List[VideoInfo]):
         """Handle playlist videos loaded"""
+        # End operation (re-enable navigation)
+        self._end_operation()
+        
         self.scrollable_frame.clear_cards()
         
         if videos and self.current_playlist is not None:
@@ -932,6 +1701,14 @@ class MainWindow:
                 self.scrollable_frame.add_card(card)
         else:
             self.status_label.configure(text="❌ Failed to load playlist videos")
+    
+    def _on_playlist_load_error(self, error: str):
+        """Handle playlist loading error"""
+        # End operation (re-enable navigation)
+        self._end_operation()
+        
+        # Show error
+        self._on_search_error(error)
     
     def _back_to_search(self):
         """Return to search results from playlist view"""
